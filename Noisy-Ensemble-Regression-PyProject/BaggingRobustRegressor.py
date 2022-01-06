@@ -64,13 +64,14 @@ class BaggingRobustRegressor:
                 v_min = v[:, min_w_idxs].mean(axis=1)
                 self.weights = v_min.T / v_min.sum()
             else:
-                print("Error: Invalid covariance matrix.")
-                self.weights = []
+                ValueError('Invalid covariance matrix')
         elif self.integration_type == 'robust-lr':
             base_prediction = np.zeros([self.n_base_estimators, len(y)])
             for k, base_estimator in enumerate(self.bagging_regressor.estimators_):
                 base_prediction[k, :] = base_estimator.predict(X)
             self.weights = np.linalg.inv(base_prediction.dot(base_prediction.T)/len(y) + self.noise_covariance).dot(base_prediction).dot(y)/len(y)  # least-squares
+        else:
+            ValueError('Invalid integration type.')
         return self
 
     def predict(self, X, weights=None):

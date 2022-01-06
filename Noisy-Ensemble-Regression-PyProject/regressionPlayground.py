@@ -8,6 +8,8 @@ from sklearn.tree import DecisionTreeRegressor
 import BaggingRobustRegressor
 
 plt.rcParams.update({'font.size': 20})
+cm = 1/2.54
+fsiz = 20*cm
 
 # Settings
 n_repeat = 50  # Number of iterations for computing expectations
@@ -191,7 +193,7 @@ if False:
 ####################################################
 # Clean Bagging with T=1, 8, 512
 ####################################################
-if False:
+if True:
     # Create the dataset
     rng = np.random.RandomState(1)
     X = np.linspace(0, 6, 100)[:, np.newaxis]
@@ -222,7 +224,7 @@ if False:
     y_3 = regr_3.predict(X)
 
     # Plot the results
-    plt.figure()
+    plt.figure(figsize=(fsiz,fsiz))
     plt.scatter(X, y, c="k", label="Training set")
     plt.plot(X, y_1, c="g", label="T=1", linewidth=2)
     plt.plot(X, y_2, c="r", label="T=8", linewidth=2)
@@ -231,17 +233,18 @@ if False:
     plt.ylabel("Target")
     # plt.title("Boosted Decision Tree Regression")
     plt.legend()
-    plt.show()
+    plt.show(block=False)
+    plt.savefig('bagging_example.png')
 
 ####################################################
 # Noisy Bagging using BEM and GEM with T=8, 32, non-uniform \sigma
 ####################################################
-if False:
+if True:
     # Create the dataset
     rng = np.random.RandomState(1)
     X = np.linspace(0, 6, 100)[:, np.newaxis]
     y = np.sin(X).ravel() + np.sin(6 * X).ravel() + rng.normal(0, 0.1, X.shape[0])
-    sigma0 = 4
+    sigma0 = 10
     sigma1 = sigma0/100
 
     # # # BEM
@@ -276,7 +279,7 @@ if False:
     y_4 = regr_4.predict(X)
 
     # Plot the results
-    plt.figure()
+    plt.figure(figsize=(fsiz,fsiz))
     plt.scatter(X, y, c="k", label="Training set")
     # plt.plot(X, y_1, c="r", ls="-.", label="T=8, \sigma=0", linewidth=2)
     plt.plot(X, y_2, c="r", label="T=8", linewidth=2)
@@ -286,7 +289,8 @@ if False:
     plt.ylabel("Target")
     # plt.title("Boosted Decision Tree Regression")
     plt.legend()
-    plt.show()
+    plt.show(block=False)
+    plt.savefig('noisy_prediction_example.png')
 
     # # # # GEM
     # # Fit regression model
@@ -375,7 +379,7 @@ if True:
     y_4 = regr_4.predict(X)
 
     # Plot the results
-    plt.figure()
+    plt.figure(figsize=(fsiz,fsiz))
     plt.plot(X, f, c="k", label="Target", linewidth=2)
     plt.scatter(X, y, c="k", label="Training set")
     # plt.plot(X, y_1, c="r", ls="-.", label="T=8, \sigma=0", linewidth=2)
@@ -387,6 +391,7 @@ if True:
     # plt.title("Boosted Decision Tree Regression")
     plt.legend()
     plt.show(block=False)
+    plt.savefig('r_bem_example.png')
 
     print("BEM:")
     print("\tTrain MSE: \n\tNoiseless:" + str(np.mean((y_1 - y) ** 2))+"\n\tPrior: " + str(np.mean((y_2 - y) ** 2)) + "\n\tRobust: " + str(np.mean((y_4 - y) ** 2)))
@@ -416,7 +421,7 @@ if True:
     y_4 = regr_4.predict(X)
 
     # Plot the results
-    plt.figure()
+    plt.figure(figsize=(fsiz,fsiz))
     plt.plot(X, f, c="k", label="Target", linewidth=2)
     plt.scatter(X, y, c="k", label="Training set")
     # plt.plot(X, y_1, c="r", ls="-.", label="T=8, \sigma=0", linewidth=2)
@@ -428,6 +433,7 @@ if True:
     # plt.title("Boosted Decision Tree Regression")
     plt.legend()
     plt.show(block=False)
+    plt.savefig('r_gem_example.png')
 
     print("GEM:")
     print("\tTrain MSE: \n\tNoiseless:" + str(np.mean((y_1 - y) ** 2))+"\n\tPrior: " + str(np.mean((y_2 - y) ** 2)) + "\n\tRobust: " + str(np.mean((y_4 - y) ** 2)))
@@ -457,7 +463,7 @@ if True:
     y_4 = regr_4.predict(X)
 
     # Plot the results
-    plt.figure()
+    plt.figure(figsize=(fsiz,fsiz))
     plt.plot(X, f, c="k", label="Target", linewidth=2)
     plt.scatter(X, y, c="k", label="Training set")
     # plt.plot(X, y_1, c="r", ls="-.", label="T=8, \sigma=0", linewidth=2)
@@ -469,6 +475,7 @@ if True:
     # plt.title("Boosted Decision Tree Regression")
     plt.legend()
     plt.show(block=False)
+    plt.savefig('r_lr_example.png')
 
     print("LR:")
     print("\tTrain MSE: \n\tNoiseless:" + str(np.mean((y_1 - y) ** 2))+"\n\tPrior: " + str(np.mean((y_2 - y) ** 2)) + "\n\tRobust: " + str(np.mean((y_4 - y) ** 2)))
