@@ -62,6 +62,8 @@ class BaggingRobustRegressor:
                 min_w = np.min(w.real)
                 min_w_idxs = [index for index, element in enumerate(w) if min_w == element]
                 v_min = v[:, min_w_idxs].mean(axis=1)
+                if "num_M="+str(min_w_idxs.__len__())>1:
+                    a=1
                 self.weights = v_min.T / v_min.sum()
             else:
                 ValueError('Invalid covariance matrix')

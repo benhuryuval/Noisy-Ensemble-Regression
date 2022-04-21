@@ -31,6 +31,33 @@ noise_covariance = np.diag(sigma_profile)
 # xv, yv = np.meshgrid(x, y, sparse=False, indexing='ij')
 # noise_covariance = np.exp(xv-yv)
 
+####################################################
+# Gradient Boosting
+####################################################
+if True:
+    from RobustGBR import RobustGradientBoostingRegressor
+
+    # Create the dataset
+    rng = np.random.RandomState(1)
+    X = np.linspace(0, 6, 100)[:, np.newaxis]
+    y = 2*X #np.sin(X).ravel() + np.sin(6 * X).ravel() + rng.normal(0, 0.1, X.shape[0])
+
+    robust_gbr = RobustGradientBoostingRegressor(n_estimators=100, learning_rate=0.1)
+    robust_gbr.fit(X, y)
+
+    plt.figure(figsize=(fsiz, fsiz))
+    plt.scatter(X, y, c="k", label="Training")
+    plt.plot(X, robust_gbr.predict(X), c="r", label="Prediction", linewidth=2)
+    plt.xlabel("Data")
+    plt.ylabel("Target")
+    # plt.title("Boosted Decision Tree Regression")
+    plt.legend()
+    plt.show(block=False)
+
+
+####################################################
+# Simulate multiple regressors
+####################################################
 if False:
     # Change this for exploring the bias-variance decomposition of other
     # estimators. This should work well for estimators with high variance (e.g.,
@@ -193,7 +220,7 @@ if False:
 ####################################################
 # Clean Bagging with T=1, 8, 512
 ####################################################
-if True:
+if False:
     # Create the dataset
     rng = np.random.RandomState(1)
     X = np.linspace(0, 6, 100)[:, np.newaxis]
@@ -239,7 +266,7 @@ if True:
 ####################################################
 # Noisy Bagging using BEM and GEM with T=8, 32, non-uniform \sigma
 ####################################################
-if True:
+if False:
     # Create the dataset
     rng = np.random.RandomState(1)
     X = np.linspace(0, 6, 100)[:, np.newaxis]
@@ -340,7 +367,7 @@ if True:
 ####################################################
 # Noisy Bagging using BEM, rBEM and GEM, rGEM with T=8, 512, non-uniform \sigma
 ####################################################
-if True:
+if False:
     # Create the dataset
     rng = np.random.RandomState(1)
     X = np.linspace(0, 6, 100)[:, np.newaxis]

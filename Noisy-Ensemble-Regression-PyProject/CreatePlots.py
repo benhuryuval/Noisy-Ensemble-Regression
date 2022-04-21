@@ -5,7 +5,7 @@ import numpy as np
 rng = np.random.RandomState(42)
 
 # # # Robust vs non-robust BEM target plot
-if False:
+if True:
     import sklearn as sk
     import sklearn.ensemble
     import BaggingRobustRegressor
@@ -22,10 +22,10 @@ if False:
     snr_db = -20
     snr = 10 ** (snr_db / 10)
 
-    fig_nr, ax_nr = plt.figure("bem_example_nonrobust"), plt.axes()
-    fig_r, ax_r = plt.figure("bem_example_robust"), plt.axes()
-    fig_func_nr, ax_func_nr = plt.figure("bem_example_func_nonrobust"), plt.axes()
-    fig_func_r, ax_func_r = plt.figure("bem_example_func_robust"), plt.axes()
+    fig_nr, ax_nr = plt.figure("bem_example_nonrobust", figsize=(8, 6), dpi=300), plt.axes()
+    fig_r, ax_r = plt.figure("bem_example_robust", figsize=(8, 6), dpi=300), plt.axes()
+    fig_func_nr, ax_func_nr = plt.figure("bem_example_func_nonrobust", figsize=(8, 6), dpi=300), plt.axes()
+    fig_func_r, ax_func_r = plt.figure("bem_example_func_robust", figsize=(8, 6), dpi=300), plt.axes()
 
     # Get data set
     X_train, y_train, X_test, y_test = aux.get_dataset(data_type=data_type, test_size=test_size, n_samples=n_samples,
@@ -140,21 +140,28 @@ if False:
     ax_r.plot(y_test, y_test, c="k", label="Target", linestyle='-', marker='', markersize=2)
 
     # plt.title("Decision Tree Ensemble, T=" + str(n_estimators))
-    ax_func_nr.set_xlabel("x")
-    ax_func_nr.set_ylabel("Prediction")
-    ax_func_nr.legend()
+    ax_func_nr.set_xlabel("x", fontsize=18)
+    ax_func_nr.set_ylabel("Prediction", fontsize=18)
+    ax_func_nr.legend(fontsize=18)
+    ax_func_nr.tick_params(axis='x', labelsize=16)
+    ax_func_nr.tick_params(axis='y', labelsize=16)
+    ax_func_nr.set_ylim((-5, 5))
 
-    ax_func_r.set_xlabel("x")
-    ax_func_r.set_ylabel("Prediction")
-    ax_func_r.legend()
+    ax_func_r.set_xlabel("x", fontsize=18)
+    ax_func_r.set_ylabel("Prediction", fontsize=18)
+    ax_func_r.legend(fontsize=18)
+    ax_func_r.legend(fontsize=18)
+    ax_func_r.tick_params(axis='x', labelsize=16)
+    ax_func_r.tick_params(axis='y', labelsize=16)
+    ax_func_r.set_ylim((-5, 5))
 
     ax_nr.set_xlabel("Prediction")
     ax_nr.set_ylabel("Target")
-    ax_nr.legend()
+    ax_nr.legend(fontsize=18)
 
-    ax_r.set_xlabel("Prediction")
-    ax_r.set_ylabel("Target")
-    ax_r.legend()
+    ax_r.set_xlabel("Prediction", fontsize=18)
+    ax_r.set_ylabel("Target", fontsize=18)
+    ax_r.legend(fontsize=18)
 
     plt.show(block=False)
 
@@ -168,12 +175,21 @@ results_path = "..//Results//"
 data_type_vec = ["kc_house_data", "diabetes", "white-wine", "sin", "exp", "make_reg"]
 
 # # # Robust vs non-robust MSE
-if True:
+if False:
+    data_label = {
+        "sin": "Sine",
+        "exp": "Exp",
+        "make_reg": "Linear",
+        "kc_house_data": "King County",
+        "diabetes": "Diabetes",
+        "white-wine": "Wine"
+    }
+
     for method_type in ["bem", "gem", "lr"]:
-        fig = plt.figure(method_type+"_robust_vs_nonrobust")
+        fig = plt.figure(method_type+"_robust_vs_nonrobust", figsize=(8, 6), dpi=300)
         ax = plt.axes()
-        plt.xlabel('SNR [dB]')
-        plt.ylabel('Test MSE Gain [dB]')
+        plt.xlabel('SNR [dB]', fontsize=18)
+        plt.ylabel('Test MSE Gain [dB]', fontsize=18)
 
         for data_type_idx, data_type in enumerate(data_type_vec):
             mse_results_df = pd.read_csv(results_path+data_type+"_"+method_type.lower()+".csv")
@@ -181,9 +197,13 @@ if True:
             color = next(ax._get_lines.prop_cycler)['color']
             plt.plot(snr_db_vec,
                      10*np.log10(mse_results_df[method_type.upper()+', Prior'] / mse_results_df[method_type.upper()+', Robust']),
-                     color=color, label=data_type, linestyle='', marker='o', markersize=2*(data_type_idx+1))
+                     color=color, label=data_label[data_type], linestyle='', marker='o', markersize=2*(data_type_idx+1))
         ax.set_ylim(bottom=0)
-        plt.legend()
+        plt.legend(fontsize=18)
+        plt.xticks(fontsize=16)
+        plt.yticks(fontsize=16)
+        # fig.set_size_inches(6.4, 4.8, forward=True)
+        # fig.set_dpi(300)
         plt.show(block=False)
         fig.savefig(fig.get_label()+".png")
 # # # # # # # # # # # # # # # # # # # # #
