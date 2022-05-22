@@ -35,24 +35,131 @@ noise_covariance = np.diag(sigma_profile)
 # Gradient Boosting
 ####################################################
 if True:
-    from RobustGBR import RobustGradientBoostingRegressor
+    # OS traversal
+    import os
 
-    # Create the dataset
-    rng = np.random.RandomState(1)
-    X = np.linspace(0, 6, 100)[:, np.newaxis]
-    y = 2*X #np.sin(X).ravel() + np.sin(6 * X).ravel() + rng.normal(0, 0.1, X.shape[0])
+    # System functionalities
+    import sys
 
-    robust_gbr = RobustGradientBoostingRegressor(n_estimators=100, learning_rate=0.1)
-    robust_gbr.fit(X, y)
+    # Adding the whole project to module paths
+    module_path = os.path.abspath(os.path.join('..'))
+    if module_path not in sys.path:
+        sys.path.append(module_path)
 
-    plt.figure(figsize=(fsiz, fsiz))
-    plt.scatter(X, y, c="k", label="Training")
-    plt.plot(X, robust_gbr.predict(X), c="r", label="Prediction", linewidth=2)
-    plt.xlabel("Data")
-    plt.ylabel("Target")
-    # plt.title("Boosted Decision Tree Regression")
+    # Data wrangling
+    import pandas as pd
+
+    # Ploting
+    import matplotlib.pyplot as plt
+
+    # Regression boosting
+    from GradientBoosting.boosting import RegressionGB, RobustRegressionGB
+
+    d = pd.read_csv('GradientBoosting/data/auto-mpg.csv')
+
+    y = 'mpg'
+    x = 'weight'
+
+    # Ploting all the points
+    plt.figure(figsize=(12, 8))
+    plt.plot(d[x], d[y], 'o', label='original')
+
+    # Defining the number of iterations
+    _m_iterations = [
+        0,
+        1,
+        20,
+        40,
+    ]
+
+    for _m in _m_iterations:
+        # Setting noise covariance matrix
+        sigma_profile = _m * np.ones([_m+1, ])
+        sigma_profile[0:1] = 0.1
+        noise_covariance = np.diag(sigma_profile)
+
+        # Initiating the tree
+        rgb = RegressionGB(
+            d,
+            y,
+            [x],
+            max_depth=3,
+            min_sample_leaf=10,
+            learning_rate=0.1,
+        )
+        rgb = RobustRegressionGB(
+            d,
+            y,
+            [x],
+            max_depth=3,
+            min_sample_leaf=10,
+            learning_rate=0.1,
+            NoiseCov=noise_covariance
+        )
+
+        # Fitting on data
+        rgb.fit(m=_m)
+
+        # Predicting
+        _input = [{x: y.get(x)} for y in d.to_dict('records')]
+        yhat = [rgb.predict(y) for y in _input]
+
+        # Saving the predictions to the training set
+        d['yhat'] = yhat
+
+        plt.plot(d[x], d['yhat'], 'o', label=f'{_m} iterations')
+        plt.title('mpg vs weight')
+
+    plt.xlabel('weight')
+    plt.ylabel('mpg')
     plt.legend()
-    plt.show(block=False)
+    plt.show()
+
+
+
+    # from RobustGBR import RobustGradientBoostingRegressor
+    # from sklearn.ensemble import GradientBoostingRegressor
+    # # Create the dataset
+    # rng = np.random.RandomState(1)
+    # X = np.linspace(0, 10, 1000)[:, np.newaxis]
+    # y = 2*X #np.sin(X).ravel() + np.sin(6 * X).ravel() + rng.normal(0, 0.1, X.shape[0])
+    #
+    # n_estimators = 10
+    #
+    # # Gradient Boosting
+    # gbr = GradientBoostingRegressor(#loss='squared_error',
+    #                                             learning_rate=0.1, n_estimators=n_estimators,
+    #                                            subsample=1.0, #criterion='squared_error',
+    #                                             min_samples_split=2,
+    #                                            min_samples_leaf=1, min_weight_fraction_leaf=0.0, max_depth=3,
+    #                                            min_impurity_decrease=0.0, init=None, random_state=None,
+    #                                            max_features=None, alpha=0.9, verbose=0, max_leaf_nodes=None,
+    #                                            warm_start=False, validation_fraction=0.1, n_iter_no_change=None,
+    #                                            tol=0.0001, ccp_alpha=0.0)
+    #
+    # gbr.fit(X, y.ravel())
+    #
+    # gbr.predict(X)
+
+    # plt.figure(figsize=(fsiz, fsiz))
+    # plt.scatter(X, y, c="k", label="Training")
+    # plt.plot(X, gbr.predict(X), c="r", label="Prediction", linewidth=2)
+    # plt.xlabel("Data")
+    # plt.ylabel("Target")
+    # plt.legend()
+
+    # Robust Gradient Boosting
+    # robust_gbr = RobustGradientBoostingRegressor(n_estimators=n_estimators, learning_rate=0.1)
+    # robust_gbr.fit(X, y)
+    #
+    # plt.figure(figsize=(fsiz, fsiz))
+    # plt.scatter(X, y, c="k", label="Training")
+    # plt.plot(X, robust_gbr.predict(X), c="r", label="Prediction", linewidth=2)
+    # plt.xlabel("Data")
+    # plt.ylabel("Target")
+    # # plt.title("Boosted Decision Tree Regression")
+    # plt.legend()
+    # plt.show(block=False)
 
 
 ####################################################
