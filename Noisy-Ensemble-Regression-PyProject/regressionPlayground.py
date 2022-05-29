@@ -12,7 +12,7 @@ cm = 1/2.54
 fsiz = 20*cm
 
 # Settings
-n_repeat = 50  # Number of iterations for computing expectations
+n_repeat = 250  # Number of iterations for computing expectations
 n_train = 100 # 200  # Size of the training set
 n_test = 250  # Size of the test set
 train_noise = 0.1 #0.05  # Standard deviation of the measurement / training noise
@@ -24,8 +24,8 @@ data_type = 'sin'  # 'sin' / 'exp'
 # Set noise covariance
 # noise_covariance = np.eye(n_base_estimators)
 
-sigma_profile = 30*np.ones([n_base_estimators, ])
-sigma_profile[0:1] = 0.1
+sigma_profile = 10*np.ones([n_base_estimators, ])
+# sigma_profile[0:1] = 0.1
 noise_covariance = np.diag(sigma_profile)
 
 # xv, yv = np.meshgrid(x, y, sparse=False, indexing='ij')
@@ -53,7 +53,7 @@ if True:
     import matplotlib.pyplot as plt
 
     # Regression boosting
-    from GradientBoosting.boosting import RegressionGB, RobustRegressionGB
+    from GradientBoosting.boosting import RobustRegressionGB
 
     d = pd.read_csv('GradientBoosting/data/auto-mpg.csv')
 
@@ -68,48 +68,44 @@ if True:
     _m_iterations = [
         0,
         1,
-        20,
+        10,
         40,
     ]
 
-    for _m in _m_iterations:
+    for _m in _m_iterations:  # iterate number of trees
+
         # Setting noise covariance matrix
-        sigma_profile = _m * np.ones([_m+1, ])
+        sigma_profile = 100 * np.ones([_m + 1, ])
         sigma_profile[0:1] = 0.1
         noise_covariance = np.diag(sigma_profile)
 
-        # Initiating the tree
-        rgb = RegressionGB(
-            d,
-            y,
-            [x],
-            max_depth=3,
-            min_sample_leaf=10,
-            learning_rate=0.1,
-        )
-        rgb = RobustRegressionGB(
-            d,
-            y,
-            [x],
-            max_depth=3,
-            min_sample_leaf=10,
-            learning_rate=0.1,
-            NoiseCov=noise_covariance
-        )
+        mse = 0
+        for _n in range(0, n_repeat):
 
-        # Fitting on data
-        rgb.fit(m=_m)
+            # Initiating the tree
+            rgb = RobustRegressionGB(
+                d,
+                y,
+                [x],
+                max_depth=3,
+                min_sample_leaf=10,
+                learning_rate=0.1,
+                NoiseCov=noise_covariance
+            )
+            # Fitting on data
+            rgb.fit(m=_m)
 
-        # Predicting
-        _input = [{x: y.get(x)} for y in d.to_dict('records')]
-        yhat = [rgb.predict(y) for y in _input]
+            # Predicting
+            yhat = rgb.predict(rgb.d[rgb.x_vars].values[:,0])
 
-        # Saving the predictions to the training set
-        d['yhat'] = yhat
+            # Saving the predictions to the training set
+            d['yhat'] = yhat
+            mse += np.square(np.subtract(rgb.d[rgb.y_var].values, yhat)).mean()
+        mse /= n_repeat
 
-        plt.plot(d[x], d['yhat'], 'o', label=f'{_m} iterations')
-        plt.title('mpg vs weight')
+        plt.plot(d[x], d['yhat'], 'o', label=f't={_m}, mse={mse}')
 
+    plt.title('mpg vs weight')
     plt.xlabel('weight')
     plt.ylabel('mpg')
     plt.legend()
