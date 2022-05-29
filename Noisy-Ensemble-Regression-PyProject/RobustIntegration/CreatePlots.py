@@ -171,7 +171,7 @@ if True:
     fig_func_r.savefig("robust-bem-example-func.png")
 # # # # # # # # # # # # # # # # # # # # #
 
-results_path = "..//Results//"
+results_path = "Results//"
 data_type_vec = ["kc_house_data", "diabetes", "white-wine", "sin", "exp", "make_reg"]
 
 # # # Robust vs non-robust MSE

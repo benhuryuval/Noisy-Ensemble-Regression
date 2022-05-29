@@ -27,20 +27,21 @@ def generate(data_type=None, n_samples=100, noise=0.1, n_repeat=1):
         return X, y
 
 def get_dataset(data_type=None, test_size=0.2, n_samples=100, noise=0.1):
+        datasets_path = "..//..//Datasets//"
         if data_type == 'kc_house_data':
-                dataset_link = '..//Datasets//kc_house_data.csv'
+                dataset_link = datasets_path + "kc_house_data.csv"
                 dataset_df = pd.read_csv(dataset_link)
                 dataset_df.drop("date", axis=1, inplace=True)
                 X, y = dataset_df.drop('price', axis=1, inplace=False), dataset_df['price']
         elif data_type == 'white-wine':
-                dataset_link = '..//Datasets//winequality-white.csv'
+                dataset_link = datasets_path + "winequality-white.csv"
                 dataset_df = pd.read_csv(dataset_link, sep=';')
                 X, y = dataset_df.drop('quality', axis=1, inplace=False), dataset_df['quality']
         elif data_type == 'diabetes':
                 dataset = sklearn.datasets.load_diabetes(return_X_y=True, as_frame=True)
                 X, y = dataset[0], dataset[1]
         elif data_type == 'carbon_nanotubes':
-                dataset_link = '..//Datasets//carbon_nanotubes.csv'
+                dataset_link = datasets_path + "carbon_nanotubes.csv"
                 dataset_df = pd.read_csv(dataset_link, sep=';')
                 for column in dataset_df.columns:
                         if dataset_df[column].dtype == 'object':
