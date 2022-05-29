@@ -14,7 +14,7 @@ rng = np.random.RandomState(42)
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 plot_flag = False
-results_path = "..//Results//"
+results_path = "Results//"
 # data_type = 'white-wine'  # kc_house_data / diabetes / white-wine / sin / exp / make_reg
 data_type_vec = ["kc_house_data", "diabetes", "white-wine", "sin", "exp", "make_reg"]
 # / carbon_nanotubes (cant use, 3dim target y)
