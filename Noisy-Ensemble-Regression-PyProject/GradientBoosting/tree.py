@@ -76,7 +76,7 @@ class Tree():
         # Initiating the sum counter 
         _sum = 0 
 
-        # Infering the lenght of list 
+        # Infering the length of list
         _n = len(x)
 
         if _n == 0:
@@ -321,7 +321,7 @@ class Tree():
         
         Returns
         -------
-        The mean Y based on the x and fitted 
+        The mean Y based on the x and fitted
         """
         # Infering the node 
         _node = self

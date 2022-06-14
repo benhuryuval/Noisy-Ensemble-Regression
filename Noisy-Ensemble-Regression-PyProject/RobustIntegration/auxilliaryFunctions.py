@@ -47,6 +47,10 @@ def get_dataset(data_type=None, test_size=0.2, n_samples=100, noise=0.1):
                         if dataset_df[column].dtype == 'object':
                                 dataset_df[column] = [float(string.replace(',', '.')) for string in dataset_df[column]]
                 X, y = dataset_df.iloc[:, :-3], dataset_df.iloc[:, -3:]
+        elif data_type == 'auto-mpg':
+                dataset_link = datasets_path + "auto-mpg.csv"
+                dataset_df = pd.read_csv(dataset_link)
+                X, y = dataset_df['weight'], dataset_df['mpg']
         else:
                 X, y = generate(data_type, n_samples=n_samples, noise=noise, n_repeat=1)
                 X, y = pd.DataFrame.from_records(X), pd.Series(y)
