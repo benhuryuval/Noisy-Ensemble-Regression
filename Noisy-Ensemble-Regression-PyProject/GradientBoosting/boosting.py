@@ -29,7 +29,8 @@ class RobustRegressionGB():
         max_depth: int = 4,
         min_sample_leaf: int = 2,
         learning_rate: float = 0.4,
-        NoiseCov: float = 0
+        NoiseCov: float = 0,
+        RobustFlag = 1
     ):
         # Saving the names of y variable and X features
         # self.y_var = y_var
@@ -52,6 +53,9 @@ class RobustRegressionGB():
 
         # Saving the noise covariance matrix
         self.NoiseCov = NoiseCov
+
+        # Saving robust learner indicator
+        self.RobustFlag = RobustFlag
 
         # Weak learner list
         self.weak_learners = []
@@ -109,7 +113,7 @@ class RobustRegressionGB():
             y_minus_f = np.subtract(_y, self._predictions)
             phi_sqrd = np.mean(_predictions_wl**2)
             gamma = self.gamma.reshape(np.sum(self.gamma.shape), 1)
-            new_gamma = (np.mean(np.multiply(_predictions_wl, y_minus_f)) + gamma.T.dot(self.NoiseCov[0:_, _])) / (phi_sqrd + self.NoiseCov[_, _])
+            new_gamma = (np.mean(np.multiply(_predictions_wl, y_minus_f)) + self.RobustFlag * gamma.T.dot(self.NoiseCov[0:_, _])) / (phi_sqrd + self.RobustFlag * self.NoiseCov[_, _])
 
             self.gamma = np.concatenate((self.gamma, new_gamma), axis=0)
 
@@ -120,7 +124,7 @@ class RobustRegressionGB():
             self._predictions = self._predictions + new_gamma * _predictions_wl
 
             # Updating the residuals
-            self._residuals = np.subtract(_y,self._predictions)
+            self._residuals = np.subtract(_y, self._predictions)
 
         # Incrementing the current iteration
         self.cur_m += m
