@@ -32,9 +32,6 @@ class RobustRegressionGB():
         NoiseCov: float = 0,
         RobustFlag = 1
     ):
-        # Saving the names of y variable and X features
-        # self.y_var = y_var
-        # self.x_vars = x_vars
 
         # Saving the node data to memory
         # self.d = d[[y_var] + x_vars].copy()
@@ -73,9 +70,6 @@ class RobustRegressionGB():
         # Saving previous predictions of weak-learners (for coefficient calculation)
         self._predictions_matrix = self._predictions
 
-        # Setting prediction covariance matrix
-        # self.PredictionCov = [[np.var(self._predictions[0, :])]]
-
     def fit(self, X, y, m: int = 10):
         """
         Applies the iterative algorithm
@@ -99,17 +93,7 @@ class RobustRegressionGB():
             # Getting the weak learner predictions
             _predictions_wl = _weak_learner.predict(_inputs).reshape(len(_y), 1)
 
-            # Update prediction covariance matrix
-            # b, A = _predictions_wl, self._predictions_matrix
-            #
-            # new_row = np.dot(A-A.mean(axis=1).reshape(_, 1), b.T-b.mean(axis=1)) / (b.shape[1]-1)
-            # self.PredictionCov = np.concatenate((self.PredictionCov, new_row), axis=0)
-            # new_col = np.concatenate((new_row[0, :], [np.var(b)])).reshape(-1, 1)
-            # self.PredictionCov = np.concatenate((self.PredictionCov, new_col), axis=1)
-
             # Setting the weak learner weight
-            # self.mean_predictions = np.concatenate((self.mean_predictions, np.mean(_predictions_wl).reshape(1)), axis=0)
-            # self.gamma.append(self.y_mean * np.linalg.inv(self.NoiseCov[0:_+1,0:_+1]+
             y_minus_f = np.subtract(_y, self._predictions)
             phi_sqrd = np.mean(_predictions_wl**2)
             gamma = self.gamma.reshape(np.sum(self.gamma.shape), 1)
@@ -118,9 +102,6 @@ class RobustRegressionGB():
             self.gamma = np.concatenate((self.gamma, new_gamma), axis=0)
 
             # Saving the current predictions
-            # self._predictions = [self._predictions[i] + self.gamma[_] * _predictions_wl[i] for i in range(self.n)]
-            # self._predictions = self.gamma[0:_] * self._predictions_matrix + self.gamma[_][-1] * _predictions_wl
-            # self._predictions_matrix = np.concatenate((self._predictions_matrix, self._predictions), axis=0)
             self._predictions = self._predictions + new_gamma * _predictions_wl
 
             # Updating the residuals
@@ -137,7 +118,6 @@ class RobustRegressionGB():
         pred_noise = np.random.multivariate_normal(np.zeros(self.cur_m+1), self.NoiseCov, X.shape[0])
 
         # Starting from the mean
-        # yhat = self._predictions + pred_noise[:, 0]
         yhat = self.y_mean + pred_noise[:, 0]
 
         # And aggregating predictions
