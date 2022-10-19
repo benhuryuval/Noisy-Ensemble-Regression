@@ -36,7 +36,7 @@ for data_type in data_type_vec:
                 snr = 10**(snr_db/10)
 
                 # Get data set
-                X_train, y_train, X_test, y_test = aux.get_dataset(data_type=data_type, test_size=test_size, n_samples=n_samples, noise=train_noise)
+                X_train, y_train, X_test, y_test = aux.partition_dataset(data_type=data_type, test_size=test_size, n_samples=n_samples, noise=train_noise)
                 X_train, y_train, X_test, y_test = X_train.to_numpy(), y_train.to_numpy(), X_test.to_numpy(), y_test.to_numpy()
 
                 # Set prediction noise

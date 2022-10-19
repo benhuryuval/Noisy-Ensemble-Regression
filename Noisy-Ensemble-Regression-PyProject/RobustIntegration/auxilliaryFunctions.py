@@ -26,7 +26,7 @@ def generate(data_type=None, n_samples=100, noise=0.1, n_repeat=1):
                 y += np.random.normal(0.0, noise, n_samples)
         return X, y
 
-def get_dataset(data_type=None, test_size=0.2, n_samples=100, noise=0.1):
+def get_dataset(data_type=None, n_samples=100, noise=0.1):
         datasets_path = "..//..//Datasets//"
         if data_type == 'kc_house_data':
                 dataset_link = datasets_path + "kc_house_data.csv"
@@ -54,6 +54,10 @@ def get_dataset(data_type=None, test_size=0.2, n_samples=100, noise=0.1):
         else:
                 X, y = generate(data_type, n_samples=n_samples, noise=noise, n_repeat=1)
                 X, y = pd.DataFrame.from_records(X), pd.Series(y)
+        return X, y
+
+def partition_dataset(data_type=None, test_size=0.2, n_samples=100, noise=0.1):
+        X, y = get_dataset(data_type=data_type, n_samples=n_samples, noise=noise)
         X_train, X_test, y_train, y_test = sk.model_selection.train_test_split(X,
                                                                                y,
                                                                                test_size=test_size,
