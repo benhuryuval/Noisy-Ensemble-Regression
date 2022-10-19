@@ -165,10 +165,10 @@ if True:
 
     plt.show(block=False)
 
-    fig_nr.savefig("nonrobust-bem-example-pred.png")
-    fig_r.savefig("robust-bem-example-pred.png")
-    fig_func_nr.savefig("nonrobust-bem-example-func.png")
-    fig_func_r.savefig("robust-bem-example-func.png")
+    fig_nr.savefig("nonrobust-bem-example-pred.png", dpi=300)
+    fig_r.savefig("robust-bem-example-pred.png", dpi=300)
+    fig_func_nr.savefig("nonrobust-bem-example-func.png", dpi=300)
+    fig_func_r.savefig("robust-bem-example-func.png", dpi=300)
 # # # # # # # # # # # # # # # # # # # # #
 
 results_path = "Results//"

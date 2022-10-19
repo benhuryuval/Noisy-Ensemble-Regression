@@ -27,11 +27,11 @@ fsiz = 20*cm
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Settings
 plot_flag = False
-nmse_or_mse = "mse"
+nmse_or_mse = "nmse"
 results_path = "Results//"
 
-n_repeat = 250  # Number of iterations for estimating expected performance
-n_samples, test_size = 500, 0.5 # Size of the (synthetic) dataset / test data fraction
+n_repeat = 200  # Number of iterations for estimating expected performance
+n_samples, test_size = 500, 0.2 # Size of the (synthetic) dataset / test data fraction
 train_noise = 0.1  # Standard deviation of the measurement / training noise
 max_depth = 1  # Maximal depth of decision tree
 learning_rate = 0.1  # learning rate of gradient boosting
@@ -44,8 +44,8 @@ snr_db_vec = np.linspace(-25, 15, 15)
 # Gradient Boosting
 ####################################################
 if True:
-    data_type_vec = ["kc_house_data"]  # ["auto-mpg", "kc_house_data", "diabetes", "white-wine", "sin", "exp", "make_reg"]
-    sigma_profile_type = "good-outlier"  # uniform / good-outlier / half
+    data_type_vec = ["diabetes"]  # ["auto-mpg", "kc_house_data", "diabetes", "white-wine", "sin", "exp", "make_reg"]
+    sigma_profile_type = "uniform"  # uniform / good-outlier / half
     for data_type in data_type_vec:
         print("- - - dataset: " + str(data_type) + " - - -")
 
@@ -62,7 +62,7 @@ if True:
         y_test = y_test.reshape(-1, 1)
 
         # Defining the number of iterations
-        _m_iterations = [1, 10, 30]
+        _m_iterations = [1, 8, 16]
 
         for _m in _m_iterations:  # iterate number of trees
             print("T=" + str(_m) + " classifiers")
@@ -134,7 +134,8 @@ if True:
                     # Saving the predictions to the training set
                     mse[idx_snr_db] += np.square(np.subtract(y_test[:,0], y_test_hat)).mean()
                     if nmse_or_mse == "nmse":
-                        mse[idx_snr_db] /= np.square(y_test[:, 0]).mean() * np.square(y_test_hat).mean()
+                        # mse[idx_snr_db] /= np.sqrt(np.square(y_test[:, 0]).mean() * np.square(y_test_hat).mean())
+                        mse[idx_snr_db] /= np.square(y_test[:, 0]).mean()
                     pred += y_test_hat
 
                     # NON-ROBUST
@@ -143,7 +144,8 @@ if True:
                     # Saving the predictions to the training set
                     mse_nr[idx_snr_db] += np.square(np.subtract(y_test[:, 0], y_test_hat)).mean()
                     if nmse_or_mse == "nmse":
-                        mse_nr[idx_snr_db] /= np.square(y_test[:, 0]).mean() * np.square(y_test_hat).mean()
+                        # mse_nr[idx_snr_db] /= np.sqrt(np.square(y_test[:, 0]).mean() * np.square(y_test_hat).mean())
+                        mse_nr[idx_snr_db] /= np.square(y_test[:, 0]).mean()
                     pred_nr += y_test_hat
 
                 mse[idx_snr_db] /= n_repeat
@@ -167,7 +169,7 @@ if True:
             plt.figure(figsize=(12, 8))
             plt.plot(snr_db_vec, 10*np.log10(mse_nr), '-xk', label='Non-robust')
             plt.plot(snr_db_vec, 10*np.log10(mse), '-ok', label='Robust')
-            plt.title("dataset: " + str(data_type) + ", T=" + str(_m) + " classifiers")
+            plt.title("dataset: " + str(data_type) + ", T=" + str(_m) + " classifiers\nnoise="+sigma_profile_type)
             plt.xlabel('SNR [dB]')
             plt.ylabel('MSE [dB]')
             if nmse_or_mse == "nmse":
