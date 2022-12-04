@@ -10,7 +10,7 @@ if module_path not in sys.path:
     sys.path.append(module_path)
 import pandas as pd
 import matplotlib.pyplot as plt  # Plotting
-from GradientBoosting.boosting import RobustRegressionGB  # Regression boosting
+from GradientBoosting_LAE.boosting import RobustRegressionGB  # Regression boosting
 import RobustIntegration.auxilliaryFunctions as aux
 from sklearn.model_selection import KFold  # k-fold cross-validation
 
@@ -31,7 +31,7 @@ results_path = "Results//"
 data_type_vec = ["exp"]  # ["auto-mpg", "kc_house_data", "diabetes", "white-wine", "sin", "exp", "make_reg"]
 snr_db_vec = np.linspace(-25, 15, 5)
 sigma_profile_type = "uniform"  # uniform / good-outlier / half
-_m_iterations = [1,32,128]  # Number of weak-learners
+_m_iterations = [1,32]  # Number of weak-learners
 
 KFold_n_splits = 2  # Number of k-fold x-validation dataset splits
 n_repeat = 500  # Number of iterations for estimating expected performance
@@ -77,20 +77,20 @@ if True:
                 #     plt.plot(X_train[:, 0], y_train[:, 0], 'ok', label='Train')
                 #     plt.plot(X_test[:, 0], y_test[:, 0], 'xk', label='Test')
 
-                # - - - CLEAN GRADIENT BOOSTING - - -
-                # Initiating the tree
-                rgb_cln = RobustRegressionGB(X=X_train, y=y_train, max_depth=max_depth, min_sample_leaf=min_sample_leaf,
-                                            NoiseCov=np.zeros([_m+1,_m+1]), RobustFlag=0)
-                # Fitting on data
-                rgb_cln.fit(X_train, y_train, m=_m)
-                # Predicting
-                y_test_hat = rgb_cln.predict(X_test)
-                pred_cln = y_test_hat
-                # Saving the predictions to the training set
-                mse_cln[:, _m_idx, kfold_idx] = np.sqrt(np.square(np.subtract(y_test[:, 0], y_test_hat)).mean())
-                if nmse_or_mse == "nmse":
-                    mse_cln[:, _m_idx, kfold_idx] /= np.square(y_test[:, 0]).mean()
-                # - - - - - - - - - - - - - - - - -
+                # # - - - CLEAN GRADIENT BOOSTING - - -
+                # # Initiating the tree
+                # rgb_cln = RobustRegressionGB(X=X_train, y=y_train, max_depth=max_depth, min_sample_leaf=min_sample_leaf,
+                #                             NoiseCov=np.zeros([_m+1,_m+1]), RobustFlag=0)  # TODO: Adjust clean GB to LAE
+                # # Fitting on data
+                # rgb_cln.fit(X_train, y_train, m=_m)
+                # # Predicting
+                # y_test_hat = rgb_cln.predict(X_test)
+                # pred_cln = y_test_hat
+                # # Saving the predictions to the training set
+                # mse_cln[:, _m_idx, kfold_idx] = np.sqrt(np.square(np.subtract(y_test[:, 0], y_test_hat)).mean())
+                # if nmse_or_mse == "nmse":
+                #     mse_cln[:, _m_idx, kfold_idx] /= np.square(y_test[:, 0]).mean()
+                # # - - - - - - - - - - - - - - - - -
 
                 for idx_snr_db, snr_db in enumerate(snr_db_vec):
                     print("snr " + " = " + "{0:0.3f}".format(snr_db) + ": ", end =" ")

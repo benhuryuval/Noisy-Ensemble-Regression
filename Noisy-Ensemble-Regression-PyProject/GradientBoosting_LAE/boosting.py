@@ -71,15 +71,62 @@ class RobustRegressionGB():
         self.reg0 = reg0_line_search(self)
         self._predictions = self.reg0 * np.ones(n_samples).reshape(n_samples, 1)  # initialize 1st regressor predictions
 
+        # Saving predictions of latest weak-learner (for coefficient calculation)
+        self._predictions_wl = self._predictions
+
         # Initialize residuals
         self._residuals = y - self._predictions
 
-        # Saving previous predictions of weak-learners (for coefficient calculation)
-        self._predictions_matrix = self._predictions
+    ''' - - - LAE GradBoost: Unconstrained weight optimization - - - '''
+    def grad_gamma(self, gamma, sigma):
+        """ This function calculates the gradient of the cost function w.r.t. gamma_t"""
+        phi = self._predictions
+        mu = gamma*phi - self._residuals
+
+        gs = np.abs(gamma) * np.abs(sigma)
+        gs2 = gs**2
+
+        a = np.sqrt(2*gs2/np.pi)
+        b = np.exp(-0.5*mu**2/gs2)
+        c = mu
+        d = 1 - 2*sp.stats.norm.cdf(-mu/np.abs(gs))
+
+        a_tag = np.sqrt(2/np.pi)*sigma*np.sign(gamma)
+        b_tag = -mu * (phi*gamma - mu)/(gamma**3 * sigma**2) * np.exp(-0.5*(mu**2)/(gamma**2*sigma**2))
+        c_tag = phi
+        d_tag = 2 * sp.stats.norm.pdf(-0.5*mu/gs2) * (phi*gs - np.sign(gamma)*sigma*mu)/gs2
+
+        return np.mean(a_tag*b + b_tag*a + c_tag*d + d_tag*c, axis=0, keepdims=True)
+
+    def gradient_descent(self, gamma_init, sigma, max_iter=30000, min_iter=10, tol=1e-5, learn_rate=0.2, decay_rate=0.2):
+        """ This function calculates optimal coefficients with gradient descent method using an early stop criteria and
+        selecting the minimal value reached throughout the iterations """
+        # initializations
+        cost_evolution = [None]*max_iter
+        gamma_evolution = [None]*max_iter
+        eps = 1e-8  # tolerance value for adagrad learning rate update
+        # first iteration
+        gamma_evolution[0] = gamma_init
+        cost_evolution[0] = self.get_training_error(self.X, self.y, gamma_init)
+        step, i = 0, 0  # initialize gradient-descent step to 0, iteration index in evolution
+        # perform gradient-descent
+        for i in range(1, max_iter):
+            # calculate grad, update momentum and alpha
+            grad = self.grad_gamma(gamma_evolution[i - 1], sigma)
+            # update learning rate and advance according to AdaGrad
+            learn_rate_upd = np.divide(gamma_evolution[i - 1] * learn_rate, grad + eps)
+            step = decay_rate * step - learn_rate_upd.dot(grad)
+            gamma_evolution[i] = gamma_evolution[i-1] + step
+            # update cost status and history for early stop
+            cost_evolution[i] = self.get_training_error(self.X, self.y, gamma_evolution[i])
+            # check convergence
+            if i > min_iter and np.abs(cost_evolution[i]-cost_evolution[i-1]) <= tol:
+                break
+        return cost_evolution, gamma_evolution, i
 
     def fit(self, X, y, m: int = 10):
         """
-        Applies the iterative algorithm
+        Train ensemble members using Robust GradientBoosting
         """
 
         # Iterating over the number of estimators
@@ -93,18 +140,12 @@ class RobustRegressionGB():
             self.weak_learners.append(_weak_learner)  # Appending the weak learner to the list
 
             # Getting the weak learner predictions
-            _predictions_wl = _weak_learner.predict(X).reshape(len(y), 1)
+            self._predictions_wl = _weak_learner.predict(X).reshape(len(y), 1)
 
             # Setting the weak learner weight
-            y_minus_f = np.subtract(y, self._predictions)
-            sum_phi_y_minus_f = np.mean(np.multiply(_predictions_wl, y_minus_f))
-            if _ == 1:  # first weak-learner (after initialization)
-                sum_gamma_sigma = np.array([0])
-            else:
-                gamma = self.gamma.reshape(_-1, 1)
-                sum_gamma_sigma = gamma.T.dot(self.NoiseCov[0:_-1, _])
-            phi_sqrd = np.mean(_predictions_wl**2)
-            new_gamma = (sum_phi_y_minus_f + self.RobustFlag * sum_gamma_sigma) / (phi_sqrd + self.RobustFlag * self.NoiseCov[_, _])
+            gamma_init, sigma = 1, self.NoiseCov[_, _]
+            cost_evolution, gamma_evolution, stop_iter = self.gradient_descent(gamma_init, sigma, max_iter=250, min_iter=10, tol=1e-5, learn_rate=0.1, decay_rate=0.2)
+            new_gamma = gamma_evolution[np.argmin(cost_evolution[0:stop_iter])]
 
             # Adding new weight to list
             if _ == 1:
@@ -113,7 +154,7 @@ class RobustRegressionGB():
                 self.gamma = np.concatenate((self.gamma, new_gamma), axis=0)
 
             # Saving the current predictions
-            self._predictions = self._predictions + new_gamma * _predictions_wl
+            self._predictions = self._predictions + new_gamma * self._predictions_wl
 
             # Updating the residuals
             self._residuals = np.subtract(y, self._predictions)
@@ -123,17 +164,25 @@ class RobustRegressionGB():
 
     def predict(self, X):
         """
-        Given the dictionary, predict the value of the y variable
+        Given an ensemble, predict the value of the y variable for input(s) X
         """
         # Generating noise
         pred_noise = np.random.multivariate_normal(np.zeros(self.cur_m+1), self.NoiseCov, X.shape[0])
 
         # Starting from the (noisy) mean
-        yhat = self.y_mean + pred_noise[:, 0]
+        yhat = self.reg0 + pred_noise[:, 0]
 
         # And aggregating (noisy) predictions
         for _m in range(self.cur_m):
             noisy_pred = self.weak_learners[_m].predict(X) + pred_noise[:, _m+1]
             yhat += self.gamma[_m] * noisy_pred
         return yhat
+
+    def get_training_error(self, X, y, new_gamma):
+        """
+        Calculate the MSE of the predictions made by an ensemble for input(s) X
+        """
+        y_hat = self._predictions + new_gamma * self._predictions_wl
+        return np.sqrt(np.square(np.subtract(y[:, 0], y_hat)).mean())
+
 
