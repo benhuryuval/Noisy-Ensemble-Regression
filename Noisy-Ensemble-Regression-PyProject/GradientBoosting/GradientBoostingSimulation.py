@@ -23,15 +23,15 @@ fsiz = 20*cm  # figure size [inch]
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Settings
-plot_flag = False
+plot_flag = True
 nmse_or_mse = "mse"
 results_path = "Results//"
 
 # Parameters
 data_type_vec = ["exp"]  # ["auto-mpg", "kc_house_data", "diabetes", "white-wine", "sin", "exp", "make_reg"]
 snr_db_vec = np.linspace(-25, 15, 5)
-sigma_profile_type = "uniform"  # uniform / good-outlier / half
-_m_iterations = [1,32,128]  # Number of weak-learners
+sigma_profile_type = "linear"  # uniform / good-outlier / linear
+_m_iterations = [1, 32, 128]  # Number of weak-learners
 
 KFold_n_splits = 2  # Number of k-fold x-validation dataset splits
 n_repeat = 500  # Number of iterations for estimating expected performance
@@ -71,12 +71,6 @@ if True:
                 X_train, X_test = X[train_index], X[test_index]
                 y_train, y_test = y[train_index], y[test_index]
 
-                # Plotting all the points
-                # if X_train.shape[1] == 1 and plot_flag:
-                #     plt.figure(figsize=(12, 8))
-                #     plt.plot(X_train[:, 0], y_train[:, 0], 'ok', label='Train')
-                #     plt.plot(X_test[:, 0], y_test[:, 0], 'xk', label='Test')
-
                 # - - - CLEAN GRADIENT BOOSTING - - -
                 # Initiating the tree
                 rgb_cln = RobustRegressionGB(X=X_train, y=y_train, max_depth=max_depth, min_sample_leaf=min_sample_leaf,
@@ -85,96 +79,114 @@ if True:
                 rgb_cln.fit(X_train, y_train, m=_m)
                 # Predicting
                 y_test_hat = rgb_cln.predict(X_test)
-                pred_cln = y_test_hat
                 # Saving the predictions to the training set
+                pred_cln = y_test_hat
                 mse_cln[:, _m_idx, kfold_idx] = np.sqrt(np.square(np.subtract(y_test[:, 0], y_test_hat)).mean())
                 if nmse_or_mse == "nmse":
                     mse_cln[:, _m_idx, kfold_idx] /= np.square(y_test[:, 0]).mean()
                 # - - - - - - - - - - - - - - - - -
 
-                for idx_snr_db, snr_db in enumerate(snr_db_vec):
-                    print("snr " + " = " + "{0:0.3f}".format(snr_db) + ": ", end =" ")
+                # Plotting dataset: Training data, Test data, "clean" predictions
+                if X_train.shape[1] == 1 and plot_flag:
+                    fig_dataset = plt.figure(figsize=(12, 8))
+                    plt.plot(X_train[:, 0], y_train[:, 0], 'ok', label='Train')
+                    plt.plot(X_test[:, 0], y_test[:, 0], 'xr', label='Test')
+                    plt.plot(X_test[:, 0], y_test_hat, 'or', label='Prediction (Test)')
+                    plt.title("_m=" + "{:d}".format(_m) + ", mse=" + "{:.4f}".format(mse_cln[0, _m_idx, kfold_idx]))
+                    plt.legend()
+                    plt.show(block=False)
+                    plt.pause(0.05)
+                    plt.close(fig_dataset)
 
-                    # Set noise variance
-                    snr = 10 ** (snr_db / 10)
-                    sig_var = np.var(y_train)
+                if True:
+                    for idx_snr_db, snr_db in enumerate(snr_db_vec):
+                        print("snr " + " = " + "{0:0.3f}".format(snr_db) + ": ", end =" ")
 
-                    # Setting noise covariance matrix
-                    if _m == 0:  # predictor is the mean of training set
-                        sigma_profile = sig_var / snr  # noise variance
-                        noise_covariance = np.diag(np.reshape(sigma_profile,(1,)))
-                    elif sigma_profile_type == "uniform":
-                        sigma0 = sig_var / (snr * _m)
-                        noise_covariance = np.diag(sigma0 * np.ones([_m + 1, ]))
-                    elif sigma_profile_type == "good-outlier":
-                        a = 1/10  # outlier variance ratio
-                        sigma0 = sig_var / (snr * (a+_m-1))
-                        tmp = sigma0 * np.ones([_m + 1, ])
-                        tmp[0] *= a
-                        noise_covariance = np.diag(tmp)
-                    elif sigma_profile_type == "half":
-                        # TODO
-                        tmp=1
+                        # Set noise variance
+                        snr = 10 ** (snr_db / 10)
+                        sig_var = np.var(y_train)
+
+                        # Setting noise covariance matrix
+                        if _m == 0:  # predictor is the mean of training set
+                            sigma_profile = sig_var / snr  # noise variance
+                            noise_covariance = np.diag(np.reshape(sigma_profile,(1,)))
+                        elif sigma_profile_type == "uniform":
+                            sigma0 = sig_var / (snr * _m)
+                            noise_covariance = np.diag(sigma0 * np.ones([_m + 1, ]))
+                        elif sigma_profile_type == "good-outlier":
+                            a = 1/10  # outlier variance ratio
+                            sigma0 = sig_var / (snr * (a+_m-1))
+                            tmp = sigma0 * np.ones([_m + 1, ])
+                            tmp[0] *= a
+                            noise_covariance = np.diag(tmp)
+                        elif sigma_profile_type == "linear":
+                            sigma_profile = np.linspace(1, 1/(_m+1), _m+1)
+                            curr_snr = sig_var / sigma_profile.sum()
+                            sigma_profile *= curr_snr/snr
+                            noise_covariance = np.diag(sigma_profile)
 
 
-                    # - - - NON-ROBUST GRADIENT BOOSTING - - -
-                    # Initiating the tree
-                    rgb_nr = RobustRegressionGB(X=X_train, y=y_train, max_depth=max_depth, min_sample_leaf=min_sample_leaf,
-                                            NoiseCov=noise_covariance, RobustFlag=0)
-                    # Fitting on data
-                    rgb_nr.fit(X_train, y_train, m=_m)
-                    # - - - - - - - - - - - - - - - - -
-
-                    # - - - ROBUST GRADIENT BOOSTING - - -
-                    rgb_r = RobustRegressionGB(X=X_train, y=y_train, max_depth=max_depth, min_sample_leaf=min_sample_leaf,
-                                            NoiseCov=noise_covariance, RobustFlag=1)
-                    # Fitting on data
-                    rgb_r.fit(X_train, y_train, m=_m)
-                    # - - - - - - - - - - - - - - - - -
-
-                    pred_nr = np.zeros(len(y_test))
-                    pred_r = np.zeros(len(y_test))
-                    for _n in range(0, n_repeat):
-                        # - - - NON-ROBUST - - -
-                        # Predicting
-                        y_test_hat = rgb_nr.predict(X_test)
-                        # Saving the predictions to the training set
-                        mse_nr[idx_snr_db, _m_idx, kfold_idx] += np.sqrt(np.square(np.subtract(y_test[:, 0], y_test_hat)).mean())
-                        if nmse_or_mse == "nmse":
-                            mse_nr[idx_snr_db, _m_idx, kfold_idx] /= np.square(y_test[:, 0]).mean()
-                        pred_nr += y_test_hat
+                        # - - - NON-ROBUST GRADIENT BOOSTING - - -
+                        # Initiating the tree
+                        rgb_nr = RobustRegressionGB(X=X_train, y=y_train, max_depth=max_depth, min_sample_leaf=min_sample_leaf,
+                                                NoiseCov=noise_covariance, RobustFlag=0)
+                        # Fitting on data
+                        rgb_nr.fit(X_train, y_train, m=_m)
                         # - - - - - - - - - - - - - - - - -
 
-                        # - - - ROBUST - - -
-                        # Predicting
-                        y_test_hat = rgb_r.predict(X_test)
-                        # Saving the predictions to the training set
-                        mse_r[idx_snr_db, _m_idx, kfold_idx] += np.sqrt(np.square(np.subtract(y_test[:,0], y_test_hat)).mean())
-                        if nmse_or_mse == "nmse":
-                            mse_r[idx_snr_db, _m_idx, kfold_idx] /= np.square(y_test[:, 0]).mean()
-                        pred_r += y_test_hat
+                        # - - - ROBUST GRADIENT BOOSTING - - -
+                        rgb_r = RobustRegressionGB(X=X_train, y=y_train, max_depth=max_depth, min_sample_leaf=min_sample_leaf,
+                                                NoiseCov=noise_covariance, RobustFlag=1)
+                        # Fitting on data
+                        rgb_r.fit(X_train, y_train, m=_m)
                         # - - - - - - - - - - - - - - - - -
 
-                    mse_nr[idx_snr_db, _m_idx, kfold_idx] /= n_repeat
-                    mse_r[idx_snr_db, _m_idx, kfold_idx] /= n_repeat
+                        pred_nr = np.zeros(len(y_test))
+                        pred_r = np.zeros(len(y_test))
+                        for _n in range(0, n_repeat):
+                            # - - - NON-ROBUST - - -
+                            # Predicting
+                            y_test_hat = rgb_nr.predict(X_test)
+                            # Saving the predictions to the training set
+                            mse_nr[idx_snr_db, _m_idx, kfold_idx] += np.sqrt(np.square(np.subtract(y_test[:, 0], y_test_hat)).mean())
+                            if nmse_or_mse == "nmse":
+                                mse_nr[idx_snr_db, _m_idx, kfold_idx] /= np.square(y_test[:, 0]).mean()
+                            pred_nr = y_test_hat
+                            # - - - - - - - - - - - - - - - - -
 
-                    print("MSE, (Clean, Non-robust, Robust) = (" +
-                          "{0:0.3f}".format(10 * np.log10(mse_cln[idx_snr_db, _m_idx, kfold_idx])) + ", " +
-                          "{0:0.3f}".format(10 * np.log10(mse_nr[idx_snr_db, _m_idx, kfold_idx])) + ", " +
-                          "{0:0.3f}".format(10 * np.log10(mse_r[idx_snr_db, _m_idx, kfold_idx])) + ")"
-                          )
+                            # - - - ROBUST - - -
+                            # Predicting
+                            y_test_hat = rgb_r.predict(X_test)
+                            # Saving the predictions to the training set
+                            mse_r[idx_snr_db, _m_idx, kfold_idx] += np.sqrt(np.square(np.subtract(y_test[:,0], y_test_hat)).mean())
+                            if nmse_or_mse == "nmse":
+                                mse_r[idx_snr_db, _m_idx, kfold_idx] /= np.square(y_test[:, 0]).mean()
+                            pred_r = y_test_hat
+                            # - - - - - - - - - - - - - - - - -
 
-                    if X_train.shape[1]==1 and plot_flag:
-                        plt.figure(figsize=(12, 8))
-                        plt.plot(X_train[:, 0], y_train, 'x', label=f'Train, t={_m}')
-                        plt.plot(X_test[:, 0], pred_cln, 'o', label=f'Clean, t={_m}')
-                        plt.plot(X_test[:, 0], pred_r/n_repeat, 'o', label=f'Robust, t={_m}')
-                        plt.plot(X_test[:, 0], pred_nr/n_repeat, 'd', label=f'Non-robust, t={_m}')
-                        plt.title('test dataset')
-                        plt.xlabel('x')
-                        plt.ylabel('y')
-                        plt.legend()
-                        plt.show()
+                        mse_nr[idx_snr_db, _m_idx, kfold_idx] /= n_repeat
+                        mse_r[idx_snr_db, _m_idx, kfold_idx] /= n_repeat
+
+                        print("MSE, (Clean, Non-robust, Robust) = (" +
+                              "{0:0.3f}".format(10 * np.log10(mse_cln[idx_snr_db, _m_idx, kfold_idx])) + ", " +
+                              "{0:0.3f}".format(10 * np.log10(mse_nr[idx_snr_db, _m_idx, kfold_idx])) + ", " +
+                              "{0:0.3f}".format(10 * np.log10(mse_r[idx_snr_db, _m_idx, kfold_idx])) + ")"
+                              )
+
+                        # Plotting dataset: Training data, Test data, "clean" predictions
+                        if X_train.shape[1]==1 and plot_flag:
+                            fig_dataset = plt.figure(figsize=(12, 8))
+                            plt.plot(X_train[:, 0], y_train, 'x', label="Train")
+                            plt.plot(X_test[:, 0], pred_cln, 'o', label="Clean, " + "mse=" + "{:.4f}".format(mse_cln[0, _m_idx, kfold_idx]))
+                            plt.plot(X_test[:, 0], pred_r, 'o', label="Robust, " + "mse=" + "{:.4f}".format(mse_r[idx_snr_db, _m_idx, kfold_idx]))
+                            plt.plot(X_test[:, 0], pred_nr, 'd', label="Non-Robust, " + "mse=" + "{:.4f}".format(mse_nr[idx_snr_db, _m_idx, kfold_idx]))
+                            plt.title("_m=" + "{:d}".format(_m) + ", SNR=" + "{:.2f}".format(snr_db))
+                            plt.xlabel('x')
+                            plt.ylabel('y')
+                            plt.legend()
+                            plt.show(block=False)
+                            plt.draw()
+                            plt.close(fig_dataset)
 
                 kfold_idx += 1
 
@@ -198,17 +210,17 @@ if True:
             if nmse_or_mse == "nmse":
                 plt.ylabel('NMSE [dB]')
             plt.legend()
-            plt.show()
+            plt.show(block=False)
 
         # Plot MSE gain results
-        for _m_idx, _m in enumerate(_m_iterations):
-            plt.figure(figsize=(12, 8))
-            plt.plot(snr_db_vec, 10 * np.log10(mse_nr[:, _m_idx, :].mean(1)) - 10 * np.log10(mse_cln[:, _m_idx, :].mean(1)), '-xr', label='Non-robust')
-            plt.plot(snr_db_vec, 10 * np.log10(mse_r[:, _m_idx, :].mean(1)) - 10 * np.log10(mse_cln[:, _m_idx, :].mean(1)), '-ob', label='Robust')
-            plt.title("dataset: " + str(data_type) + ", T=" + str(_m) + " regressors\nnoise=" + sigma_profile_type)
-            plt.xlabel('SNR [dB]')
-            plt.ylabel('MSE Gain [dB]')
-            if nmse_or_mse == "nmse":
-                plt.ylabel('NMSE [dB]')
-            plt.legend()
-            plt.show()
+        # for _m_idx, _m in enumerate(_m_iterations):
+        #     plt.figure(figsize=(12, 8))
+        #     plt.plot(snr_db_vec, 10 * np.log10(mse_nr[:, _m_idx, :].mean(1)) - 10 * np.log10(mse_cln[:, _m_idx, :].mean(1)), '-xr', label='Non-robust')
+        #     plt.plot(snr_db_vec, 10 * np.log10(mse_r[:, _m_idx, :].mean(1)) - 10 * np.log10(mse_cln[:, _m_idx, :].mean(1)), '-ob', label='Robust')
+        #     plt.title("dataset: " + str(data_type) + ", T=" + str(_m) + " regressors\nnoise=" + sigma_profile_type)
+        #     plt.xlabel('SNR [dB]')
+        #     plt.ylabel('MSE Gain [dB]')
+        #     if nmse_or_mse == "nmse":
+        #         plt.ylabel('NMSE [dB]')
+        #     plt.legend()
+        #     plt.show(block=False)

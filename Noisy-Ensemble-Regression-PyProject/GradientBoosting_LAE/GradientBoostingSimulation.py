@@ -23,9 +23,9 @@ fsiz = 20*cm  # figure size [inch]
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Settings
-plot_flag = False
-nmse_or_mse = "mse"
+plot_flag = True
 results_path = "Results//"
+save_results_to_file_flag = False
 
 # Parameters
 data_type_vec = ["exp"]  # ["auto-mpg", "kc_house_data", "diabetes", "white-wine", "sin", "exp", "make_reg"]
@@ -77,20 +77,18 @@ if True:
                 #     plt.plot(X_train[:, 0], y_train[:, 0], 'ok', label='Train')
                 #     plt.plot(X_test[:, 0], y_test[:, 0], 'xk', label='Test')
 
-                # # - - - CLEAN GRADIENT BOOSTING - - -
-                # # Initiating the tree
-                # rgb_cln = RobustRegressionGB(X=X_train, y=y_train, max_depth=max_depth, min_sample_leaf=min_sample_leaf,
-                #                             NoiseCov=np.zeros([_m+1,_m+1]), RobustFlag=0)  # TODO: Adjust clean GB to LAE
-                # # Fitting on data
-                # rgb_cln.fit(X_train, y_train, m=_m)
-                # # Predicting
-                # y_test_hat = rgb_cln.predict(X_test)
-                # pred_cln = y_test_hat
-                # # Saving the predictions to the training set
-                # mse_cln[:, _m_idx, kfold_idx] = np.sqrt(np.square(np.subtract(y_test[:, 0], y_test_hat)).mean())
-                # if nmse_or_mse == "nmse":
-                #     mse_cln[:, _m_idx, kfold_idx] /= np.square(y_test[:, 0]).mean()
-                # # - - - - - - - - - - - - - - - - -
+                # - - - CLEAN GRADIENT BOOSTING - - -
+                # Initiating the tree
+                rgb_cln = RobustRegressionGB(X=X_train, y=y_train, max_depth=max_depth, min_sample_leaf=min_sample_leaf,
+                                            NoiseCov=np.zeros([_m+1,_m+1]), RobustFlag=0)
+                # Fitting on data
+                rgb_cln.fit(X_train, y_train, m=_m)
+                # Predicting
+                y_test_hat = rgb_cln.predict(X_test)
+                pred_cln = y_test_hat
+                # Saving the predictions to the training set
+                mse_cln[:, _m_idx, kfold_idx] = np.abs(np.subtract(y_test[:, 0], y_test_hat).mean())
+                # - - - - - - - - - - - - - - - - -
 
                 for idx_snr_db, snr_db in enumerate(snr_db_vec):
                     print("snr " + " = " + "{0:0.3f}".format(snr_db) + ": ", end =" ")
@@ -141,20 +139,16 @@ if True:
                         # Predicting
                         y_test_hat = rgb_nr.predict(X_test)
                         # Saving the predictions to the training set
-                        mse_nr[idx_snr_db, _m_idx, kfold_idx] += np.sqrt(np.square(np.subtract(y_test[:, 0], y_test_hat)).mean())
-                        if nmse_or_mse == "nmse":
-                            mse_nr[idx_snr_db, _m_idx, kfold_idx] /= np.square(y_test[:, 0]).mean()
-                        pred_nr += y_test_hat
+                        mse_nr[idx_snr_db, _m_idx, kfold_idx] += np.abs(np.subtract(y_test[:, 0], y_test_hat).mean())
+                        pred_nr = y_test_hat
                         # - - - - - - - - - - - - - - - - -
 
                         # - - - ROBUST - - -
                         # Predicting
                         y_test_hat = rgb_r.predict(X_test)
                         # Saving the predictions to the training set
-                        mse_r[idx_snr_db, _m_idx, kfold_idx] += np.sqrt(np.square(np.subtract(y_test[:,0], y_test_hat)).mean())
-                        if nmse_or_mse == "nmse":
-                            mse_r[idx_snr_db, _m_idx, kfold_idx] /= np.square(y_test[:, 0]).mean()
-                        pred_r += y_test_hat
+                        mse_r[idx_snr_db, _m_idx, kfold_idx] += np.abs(np.subtract(y_test[:, 0], y_test_hat).mean())
+                        pred_r = y_test_hat
                         # - - - - - - - - - - - - - - - - -
 
                     mse_nr[idx_snr_db, _m_idx, kfold_idx] /= n_repeat
@@ -167,25 +161,30 @@ if True:
                           )
 
                     if X_train.shape[1]==1 and plot_flag:
-                        plt.figure(figsize=(12, 8))
-                        plt.plot(X_train[:, 0], y_train, 'x', label=f'Train, t={_m}')
-                        plt.plot(X_test[:, 0], pred_cln, 'o', label=f'Clean, t={_m}')
-                        plt.plot(X_test[:, 0], pred_r/n_repeat, 'o', label=f'Robust, t={_m}')
-                        plt.plot(X_test[:, 0], pred_nr/n_repeat, 'd', label=f'Non-robust, t={_m}')
-                        plt.title('test dataset')
+                        fig_dataset = plt.figure(figsize=(12, 8))
+                        plt.plot(X_train[:, 0], y_train, 'x', label="Train")
+                        plt.plot(X_test[:, 0], pred_cln, 'o',
+                                 label="Clean, " + "mse=" + "{:.4f}".format(mse_cln[0, _m_idx, kfold_idx]))
+                        plt.plot(X_test[:, 0], pred_r, 'o',
+                                 label="Robust, " + "mse=" + "{:.4f}".format(mse_r[idx_snr_db, _m_idx, kfold_idx]))
+                        plt.plot(X_test[:, 0], pred_nr, 'd',
+                                 label="Non-Robust, " + "mse=" + "{:.4f}".format(mse_nr[idx_snr_db, _m_idx, kfold_idx]))
+                        plt.title("_m=" + "{:d}".format(_m) + ", SNR=" + "{:.2f}".format(snr_db))
                         plt.xlabel('x')
                         plt.ylabel('y')
                         plt.legend()
-                        plt.show()
+                        plt.show(block=False)
+                        plt.close(fig_dataset)
 
                 kfold_idx += 1
 
-            results_df = pd.concat({'SNR': pd.Series(snr_db_vec),
-                                   'GBR, Noiseless': pd.Series(np.log10(mse_cln[:, _m_idx, :].mean(1))),
-                                    'GBR, Non-Robust': pd.Series(np.log10(mse_nr[:, _m_idx, :].mean(1))),
-                                    'GBR, Robust': pd.Series(np.log10(mse_r[:, _m_idx, :].mean(1)))},
-                                   axis=1)
-            results_df.to_csv(results_path + data_type + "_" + _m.__str__() + "_gbr.csv")
+            if save_results_to_file_flag:
+                results_df = pd.concat({'SNR': pd.Series(snr_db_vec),
+                                       'GBR, Noiseless': pd.Series(np.log10(mse_cln[:, _m_idx, :].mean(1))),
+                                        'GBR, Non-Robust': pd.Series(np.log10(mse_nr[:, _m_idx, :].mean(1))),
+                                        'GBR, Robust': pd.Series(np.log10(mse_r[:, _m_idx, :].mean(1)))},
+                                       axis=1)
+                results_df.to_csv(results_path + data_type + "_" + _m.__str__() + "_gbr.csv")
             print("---------------------------------------------------------------------------\n")
 
         # Plot MSE results
@@ -197,10 +196,8 @@ if True:
             plt.title("dataset: " + str(data_type) + ", T=" + str(_m) + " regressors\nnoise=" + sigma_profile_type)
             plt.xlabel('SNR [dB]')
             plt.ylabel('MSE [dB]')
-            if nmse_or_mse == "nmse":
-                plt.ylabel('NMSE [dB]')
             plt.legend()
-            plt.show()
+            plt.show(blcok=False)
 
         # Plot MSE gain results
         for _m_idx, _m in enumerate(_m_iterations):
@@ -210,7 +207,5 @@ if True:
             plt.title("dataset: " + str(data_type) + ", T=" + str(_m) + " regressors\nnoise=" + sigma_profile_type)
             plt.xlabel('SNR [dB]')
             plt.ylabel('MSE Gain [dB]')
-            if nmse_or_mse == "nmse":
-                plt.ylabel('NMSE [dB]')
             plt.legend()
-            plt.show()
+            plt.show(blcok=False)

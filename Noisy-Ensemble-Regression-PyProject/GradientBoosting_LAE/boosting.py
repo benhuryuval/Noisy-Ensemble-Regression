@@ -60,10 +60,13 @@ class RobustRegressionGB():
             g0 = np.linspace(miny, maxy, num=int(npts))
             G = np.repeat(g0.reshape(1, npts), len(y), axis=0)
             Y = np.repeat(y, npts, axis=1)
-            s0 = self.NoiseCov[0, 0]
-            G_Y_s0 = (G-Y) / s0
-            gaussExpTerm = np.exp(-0.5 * G_Y_s0**2)
-            deriv = -np.sqrt(2/np.pi) * G_Y_s0*s0 * gaussExpTerm * (1-2*sp.stats.norm.cdf(-G_Y_s0)) + 2*G_Y_s0 * gaussExpTerm/np.sqrt(2*np.pi*s0**2)
+            if self.NoiseCov[0, 0] == 0:
+                deriv = -np.sign(G-Y).sum()
+            else:
+                s0 = self.NoiseCov[0, 0]
+                G_Y_s0 = (G-Y) / s0
+                gaussExpTerm = np.exp(-0.5 * G_Y_s0**2)
+                deriv = -np.sqrt(2/np.pi) * G_Y_s0*s0 * gaussExpTerm * (1-2*sp.stats.norm.cdf(-G_Y_s0)) + 2*G_Y_s0 * gaussExpTerm/np.sqrt(2*np.pi*s0**2)
             g0idx = np.argmin(np.abs(deriv.sum(axis=0)))
             return g0[g0idx]
 
@@ -83,18 +86,27 @@ class RobustRegressionGB():
         phi = self._predictions
         mu = gamma*phi - self._residuals
 
-        gs = np.abs(gamma) * np.abs(sigma)
-        gs2 = gs**2
+        if sigma == 0.0:
+            gs, gs2 = 0.0, 0.0
+        else:
+            gs = np.abs(gamma) * np.abs(sigma)
+            gs2 = gs**2
 
         a = np.sqrt(2*gs2/np.pi)
-        b = np.exp(-0.5*mu**2/gs2)
         c = mu
-        d = 1 - 2*sp.stats.norm.cdf(-mu/np.abs(gs))
+        if sigma == 0.0:
+            b, d = 0.0, 1.0
+        else:
+            b = np.exp(-0.5*mu**2/gs2)
+            d = 1 - 2*sp.stats.norm.cdf(-mu/np.abs(gs))
 
         a_tag = np.sqrt(2/np.pi)*sigma*np.sign(gamma)
-        b_tag = -mu * (phi*gamma - mu)/(gamma**3 * sigma**2) * np.exp(-0.5*(mu**2)/(gamma**2*sigma**2))
         c_tag = phi
-        d_tag = 2 * sp.stats.norm.pdf(-0.5*mu/gs2) * (phi*gs - np.sign(gamma)*sigma*mu)/gs2
+        if sigma == 0.0:
+            b_tag, d_tag = 0.0, 0.0
+        else:
+            b_tag = -mu * (phi*gamma - mu)/(gamma**3 * sigma**2) * np.exp(-0.5*(mu**2)/(gamma**2*sigma**2))
+            d_tag = 2 * sp.stats.norm.pdf(-0.5*mu/gs2) * (phi*gs - np.sign(gamma)*sigma*mu)/gs2
 
         return np.mean(a_tag*b + b_tag*a + c_tag*d + d_tag*c, axis=0, keepdims=True)
 
@@ -102,23 +114,23 @@ class RobustRegressionGB():
         """ This function calculates optimal coefficients with gradient descent method using an early stop criteria and
         selecting the minimal value reached throughout the iterations """
         # initializations
-        cost_evolution = [None]*max_iter
-        gamma_evolution = [None]*max_iter
+        cost_evolution = [np.array([[0.0]])] * max_iter
+        gamma_evolution = [np.array([[0.0]])] * max_iter
         eps = 1e-8  # tolerance value for adagrad learning rate update
         # first iteration
+        cost_evolution[0] = self.get_training_error(self.y, gamma_init)
         gamma_evolution[0] = gamma_init
-        cost_evolution[0] = self.get_training_error(self.X, self.y, gamma_init)
-        step, i = 0, 0  # initialize gradient-descent step to 0, iteration index in evolution
+        step, i = np.array([[0.0]]), 0  # initialize gradient-descent step to 0, iteration index in evolution
         # perform gradient-descent
         for i in range(1, max_iter):
             # calculate grad, update momentum and alpha
             grad = self.grad_gamma(gamma_evolution[i - 1], sigma)
             # update learning rate and advance according to AdaGrad
-            learn_rate_upd = np.divide(gamma_evolution[i - 1] * learn_rate, grad + eps)
-            step = decay_rate * step - learn_rate_upd.dot(grad)
+            learn_rate_upd = np.divide(gamma_evolution[i - 1]*learn_rate, grad + eps)
+            step = step.dot(decay_rate) - grad.dot(learn_rate_upd)
             gamma_evolution[i] = gamma_evolution[i-1] + step
             # update cost status and history for early stop
-            cost_evolution[i] = self.get_training_error(self.X, self.y, gamma_evolution[i])
+            cost_evolution[i] = self.get_training_error(self.y, gamma_evolution[i])
             # check convergence
             if i > min_iter and np.abs(cost_evolution[i]-cost_evolution[i-1]) <= tol:
                 break
@@ -144,8 +156,8 @@ class RobustRegressionGB():
             self._predictions_wl = _weak_learner.predict(X).reshape(len(y), 1)
 
             # Setting the weak learner weight
-            gamma_init, sigma = 1, self.NoiseCov[_, _]
-            cost_evolution, gamma_evolution, stop_iter = self.gradient_descent(gamma_init, sigma, max_iter=250, min_iter=10, tol=1e-8, learn_rate=0.05, decay_rate=0.2)
+            gamma_init, sigma = np.array([[1.0]]), self.NoiseCov[_, _]
+            cost_evolution, gamma_evolution, stop_iter = self.gradient_descent(gamma_init, sigma, max_iter=250, min_iter=100, tol=1e-8, learn_rate=1e-4, decay_rate=0.2)
             new_gamma = gamma_evolution[np.argmin(cost_evolution[0:stop_iter])]
 
             # - - - - - - - - - - - - -
@@ -155,7 +167,7 @@ class RobustRegressionGB():
             plt.legend(loc="upper right", fontsize=12)
             plt.xlabel("GD iteration", fontsize=14)
             plt.ylabel("LAE (Cost function)", fontsize=14)
-            plt.title("sigma: " + "{:.2f}".format(sigma) + ", _m=" + "{:d}".format(_) + ", gamma=" + "{:.4f}".format(new_gamma[0,0]))
+            plt.title("sigma: " + "{:.2f}".format(sigma) + ", _m=" + "{:d}".format(_) + ", gamma=" + "{:.4f}".format(new_gamma[0, 0]))
             plt.grid()
             plt.show(block=False)
             plt.pause(0.05)
@@ -164,7 +176,7 @@ class RobustRegressionGB():
 
             # Adding new weight to list
             if _ == 1:
-                self.gamma = new_gamma
+                self.gamma = np.array(new_gamma)
             else:
                 self.gamma = np.concatenate((self.gamma, new_gamma), axis=0)
 
@@ -193,11 +205,16 @@ class RobustRegressionGB():
             yhat += self.gamma[_m] * noisy_pred
         return yhat
 
-    def get_training_error(self, X, y, new_gamma):
+    def get_training_error(self, y, new_gamma):
         """
-        Calculate the MSE of the predictions made by an ensemble for input(s) X
+        Calculate the LAE of the predictions made by an ensemble during training
         """
         y_hat = self._predictions + new_gamma * self._predictions_wl
-        return np.sqrt(np.square(np.subtract(y[:, 0], y_hat)).mean())
+        return np.abs(np.subtract(y[:, 0], y_hat).mean())
 
-
+    def get_lae(self, X, y):
+        """
+        Calculate the LAE of the predictions made by an ensemble for arbitrary input(s) X
+        """
+        y_hat = self.predict(X)
+        return np.abs(np.subtract(y, y_hat).mean())
