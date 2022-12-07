@@ -122,6 +122,7 @@ class RobustRegressionGB():
             # check convergence
             if i > min_iter and np.abs(cost_evolution[i]-cost_evolution[i-1]) <= tol:
                 break
+
         return cost_evolution, gamma_evolution, i
 
     def fit(self, X, y, m: int = 10):
@@ -144,8 +145,22 @@ class RobustRegressionGB():
 
             # Setting the weak learner weight
             gamma_init, sigma = 1, self.NoiseCov[_, _]
-            cost_evolution, gamma_evolution, stop_iter = self.gradient_descent(gamma_init, sigma, max_iter=250, min_iter=10, tol=1e-5, learn_rate=0.1, decay_rate=0.2)
+            cost_evolution, gamma_evolution, stop_iter = self.gradient_descent(gamma_init, sigma, max_iter=250, min_iter=10, tol=1e-8, learn_rate=0.05, decay_rate=0.2)
             new_gamma = gamma_evolution[np.argmin(cost_evolution[0:stop_iter])]
+
+            # - - - - - - - - - - - - -
+            fig_debug = plt.figure()
+            plt.plot(range(0, stop_iter, 1), cost_evolution[0:stop_iter], label='Cost', linestyle='-', color='blue')
+            plt.plot(np.argmin(cost_evolution[0:stop_iter]), np.min(cost_evolution[0:stop_iter]), marker='x', color='blue')
+            plt.legend(loc="upper right", fontsize=12)
+            plt.xlabel("GD iteration", fontsize=14)
+            plt.ylabel("LAE (Cost function)", fontsize=14)
+            plt.title("sigma: " + "{:.2f}".format(sigma) + ", _m=" + "{:d}".format(_) + ", gamma=" + "{:.4f}".format(new_gamma[0,0]))
+            plt.grid()
+            plt.show(block=False)
+            plt.pause(0.05)
+            plt.close(fig_debug)
+            # - - - - - - - - - - - - -
 
             # Adding new weight to list
             if _ == 1:

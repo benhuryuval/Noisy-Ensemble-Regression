@@ -30,8 +30,8 @@ results_path = "Results//"
 # Parameters
 data_type_vec = ["exp"]  # ["auto-mpg", "kc_house_data", "diabetes", "white-wine", "sin", "exp", "make_reg"]
 snr_db_vec = np.linspace(-25, 15, 5)
-sigma_profile_type = "uniform"  # uniform / good-outlier / half
-_m_iterations = [1,32]  # Number of weak-learners
+sigma_profile_type = "linear"  # uniform / good-outlier / linear
+_m_iterations = [4, 8]  # Number of weak-learners
 
 KFold_n_splits = 2  # Number of k-fold x-validation dataset splits
 n_repeat = 500  # Number of iterations for estimating expected performance
@@ -102,7 +102,7 @@ if True:
                     # Setting noise covariance matrix
                     if _m == 0:  # predictor is the mean of training set
                         sigma_profile = sig_var / snr  # noise variance
-                        noise_covariance = np.diag(np.reshape(sigma_profile,(1,)))
+                        noise_covariance = np.diag(np.reshape(sigma_profile, (1,)))
                     elif sigma_profile_type == "uniform":
                         sigma0 = sig_var / (snr * _m)
                         noise_covariance = np.diag(sigma0 * np.ones([_m + 1, ]))
@@ -112,9 +112,11 @@ if True:
                         tmp = sigma0 * np.ones([_m + 1, ])
                         tmp[0] *= a
                         noise_covariance = np.diag(tmp)
-                    elif sigma_profile_type == "half":
-                        # TODO
-                        tmp=1
+                    elif sigma_profile_type == "linear":
+                        sigma_profile = np.linspace(1, 1/(_m+1), _m+1)
+                        curr_snr = sig_var / sigma_profile.sum()
+                        sigma_profile *= curr_snr/snr
+                        noise_covariance = np.diag(sigma_profile)
 
 
                     # - - - NON-ROBUST GRADIENT BOOSTING - - -
