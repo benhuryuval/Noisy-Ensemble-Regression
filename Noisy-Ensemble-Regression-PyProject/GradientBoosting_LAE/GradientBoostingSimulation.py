@@ -28,16 +28,16 @@ results_path = "Results//"
 save_results_to_file_flag = False
 
 # Parameters
-data_type_vec = ["exp"]  # ["auto-mpg", "kc_house_data", "diabetes", "white-wine", "sin", "exp", "make_reg"]
+data_type_vec = ["auto-mpg"]  # ["auto-mpg", "kc_house_data", "diabetes", "white-wine", "sin", "exp", "make_reg"]
 snr_db_vec = np.linspace(-25, 15, 5)
-snr_db_vec = np.array([0])
-sigma_profile_type = "linear"  # uniform / good-outlier / linear
+# snr_db_vec = np.array([-10])
+sigma_profile_type = "uniform"  # uniform / good-outlier / linear
 _m_iterations = [16]  # Number of weak-learners
 
 KFold_n_splits = 2  # Number of k-fold x-validation dataset splits
 n_repeat = 500  # Number of iterations for estimating expected performance
 
-n_samples, test_size = 500, 0.2 # Size of the (synthetic) dataset / test data fraction
+n_samples, test_size = 500, 0.2  # Size of the (synthetic) dataset / test data fraction
 train_noise = 0.1  # Standard deviation of the measurement / training noise
 max_depth = 1  # Maximal depth of decision tree
 learning_rate = 0.1  # learning rate of gradient boosting
@@ -179,10 +179,10 @@ if True:
                                         'GBR, Non-Robust': pd.Series(np.log10(err_nr[:, _m_idx, :].mean(1))),
                                         'GBR, Robust': pd.Series(np.log10(err_r[:, _m_idx, :].mean(1)))},
                                        axis=1)
-                results_df.to_csv(results_path + data_type + "_" + _m.__str__() + "_gbr.csv")
+                results_df.to_csv(results_path + data_type + "_" + _m.__str__() + "_gbr_lae.csv")
             print("---------------------------------------------------------------------------\n")
 
-        # Plot MSE results
+        # Plot LAE results
         for _m_idx, _m in enumerate(_m_iterations):
             plt.figure(figsize=(12, 8))
             plt.plot(snr_db_vec, 10 * np.log10(err_cln[:, _m_idx, :].mean(1)), '-k', label='Clean')
@@ -190,17 +190,18 @@ if True:
             plt.plot(snr_db_vec, 10 * np.log10(err_r[:, _m_idx, :].mean(1)), '-ob', label='Robust')
             plt.title("dataset: " + str(data_type) + ", T=" + str(_m) + " regressors\nnoise=" + sigma_profile_type)
             plt.xlabel('SNR [dB]')
-            plt.ylabel('MSE [dB]')
+            plt.ylabel('LAE [dB]')
             plt.legend()
-            plt.show(blcok=False)
+            plt.show(block=False)
 
-        # Plot MSE gain results
+        # Plot LAE gain results
         for _m_idx, _m in enumerate(_m_iterations):
             plt.figure(figsize=(12, 8))
-            plt.plot(snr_db_vec, 10 * np.log10(err_nr[:, _m_idx, :].mean(1)) - 10 * np.log10(err_cln[:, _m_idx, :].mean(1)), '-xr', label='Non-robust')
-            plt.plot(snr_db_vec, 10 * np.log10(err_r[:, _m_idx, :].mean(1)) - 10 * np.log10(err_cln[:, _m_idx, :].mean(1)), '-ob', label='Robust')
+            # plt.plot(snr_db_vec, 10 * np.log10(err_nr[:, _m_idx, :].mean(1)) - 10 * np.log10(err_cln[:, _m_idx, :].mean(1)), '-xr', label='Non-robust')
+            # plt.plot(snr_db_vec, 10 * np.log10(err_r[:, _m_idx, :].mean(1)) - 10 * np.log10(err_cln[:, _m_idx, :].mean(1)), '-ob', label='Robust')
+            plt.plot(snr_db_vec, 10 * np.log10(err_nr[:, _m_idx, :].mean(1)) - 10 * np.log10(err_r[:, _m_idx, :].mean(1)), '-ob', label='Robust')
             plt.title("dataset: " + str(data_type) + ", T=" + str(_m) + " regressors\nnoise=" + sigma_profile_type)
             plt.xlabel('SNR [dB]')
-            plt.ylabel('MSE Gain [dB]')
-            plt.legend()
-            plt.show(blcok=False)
+            plt.ylabel('LAE Gain [dB]')
+            # plt.legend()
+            plt.show(block=False)
