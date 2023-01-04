@@ -67,4 +67,31 @@ def partition_dataset(data_type=None, test_size=0.2, n_samples=100, noise=0.1):
 def is_psd_mat(matrix):
         return np.all(np.linalg.eigvals(matrix) >= 0)
 
+def gradient_descent_scalar(gamma_init, grad_fun, cost_fun, max_iter=30000, min_iter=10, tol=1e-5, learn_rate=0.2, decay_rate=0.2):
+        """ This function calculates optimal (scalar) argument with AdaGrad-style gradient descent method using an early stop criteria and
+        selecting the minimal value reached throughout the iterations """
+
+        # initializations
+        cost_evolution = [np.array([[0.0]])] * max_iter
+        gamma_evolution = [np.array([[0.0]])] * max_iter
+        eps = 1e-8  # tolerance value for adagrad learning rate update
+        step, i = np.array([[0.0]]), 0  # initialize gradient-descent step to 0, iteration index in evolution
+
+        # perform remaining iterations of gradient-descent
+        gamma_evolution[0] = gamma_init
+        for i in range(0, max_iter-1):
+            # calculate grad and update cost function
+            grad, cost_evolution[i] = grad_fun(gamma_evolution[i]), cost_fun(gamma_evolution[i])
+
+            # check convergence
+            if i > max(min_iter, 0) and np.abs(cost_evolution[i]-cost_evolution[i-1]) <= tol:
+                break
+            else:
+                # update learning rate and advance according to AdaGrad
+                Gt = np.sum(np.concatenate(gamma_evolution[0:i+1])**2)
+                learn_rate_upd = np.divide(learn_rate, np.sqrt(Gt + eps))
+                step = step.dot(decay_rate) - grad.dot(learn_rate_upd)
+                # step = -grad.dot(learn_rate)
+                gamma_evolution[i+1] = gamma_evolution[i] + step
+
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
