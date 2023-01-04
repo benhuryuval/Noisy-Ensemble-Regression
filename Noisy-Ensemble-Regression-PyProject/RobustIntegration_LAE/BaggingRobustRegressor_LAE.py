@@ -14,7 +14,7 @@ class rBaggReg:  # Robust Bagging Regressor
     # The supported error criteria are: MSE (l2) and MAE (l1).
 
 
-    def __init__(self, bagging_regressor, noise_covariance=None, n_base_estimators, integration_type='bem'):
+    def __init__(self, bagging_regressor, noise_covariance=None, n_base_estimators=1, integration_type='bem'):
         self.bagging_regressor = bagging_regressor
         if noise_covariance is None:
             self.noise_covariance = np.eye(n_base_estimators)

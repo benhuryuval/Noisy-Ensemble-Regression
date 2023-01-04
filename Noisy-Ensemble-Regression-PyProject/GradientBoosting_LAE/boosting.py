@@ -93,56 +93,6 @@ class RobustRegressionGB():
         self._residuals = self._predictions - y
 
     ''' - - - LAE GradBoost: Unconstrained weight optimization - - - '''
-    def gradient_descent(self, gamma_init, sigma, max_iter=30000, min_iter=10, tol=1e-5, learn_rate=0.2, decay_rate=0.2):
-        """ This function calculates optimal coefficients with gradient descent method using an early stop criteria and
-        selecting the minimal value reached throughout the iterations """
-
-        # initializations
-        cost_evolution = [np.array([[0.0]])] * max_iter
-        gamma_evolution = [np.array([[0.0]])] * max_iter
-        eps = 1e-8  # tolerance value for adagrad learning rate update
-        step, i = np.array([[0.0]]), 0  # initialize gradient-descent step to 0, iteration index in evolution
-
-        # perform remaining iterations of gradient-descent
-        gamma_evolution[0] = gamma_init
-        for i in range(0, max_iter-1):
-            # calculate grad and update cost function
-            grad, cost_evolution[i] = self.grad_gamma(gamma_evolution[i], np.sqrt(sigma))
-
-            # check convergence
-            if i > max(min_iter, 0) and np.abs(cost_evolution[i]-cost_evolution[i-1]) <= tol:
-                break
-            else:
-                # update learning rate and advance according to AdaGrad
-                Gt = np.sum(np.concatenate(gamma_evolution[0:i+1])**2)
-                learn_rate_upd = np.divide(learn_rate, np.sqrt(Gt + eps))
-                step = step.dot(decay_rate) - grad.dot(learn_rate_upd)
-                # step = -grad.dot(learn_rate)
-                gamma_evolution[i+1] = gamma_evolution[i] + step
-
-        # - - - - - - - - - - - - - - - - - - - - - - - - - -
-        # LAE plotting for visualization and debug
-        if False:
-            npts = 10000
-            g_vec = np.linspace(-10, 10, npts)
-            lae = np.array(np.zeros((npts, 1)))
-            for g_idx, g_ in enumerate(g_vec):
-                a, b, c, d = self.calc_cost(g_, sigma)
-                lae[g_idx, 0] = np.mean(a * b + c * d)
-
-            fig_lae = plt.figure(figsize=(12, 8))
-            plt.plot(g_vec, lae, '.', label="LAE")
-            plt.xlabel('gamma')
-            plt.ylabel('LAE')
-            plt.legend()
-            plt.show(block=False)
-
-            plt.plot(np.concatenate(gamma_evolution[0:i], axis=0)[:,0], np.array(cost_evolution[0:i]), 'o', label="GD")
-            plt.close(fig_lae)
-        # - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-        return cost_evolution, gamma_evolution, i
-
     def fit(self, X, y, m: int = 10):
         """
         Train ensemble members using Robust GradientBoosting
