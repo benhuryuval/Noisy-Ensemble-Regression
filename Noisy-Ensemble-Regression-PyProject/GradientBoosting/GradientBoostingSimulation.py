@@ -28,7 +28,7 @@ nmse_or_mse = "mse"
 results_path = "Results//"
 
 # Parameters
-data_type_vec = ["exp"]  # ["auto-mpg", "kc_house_data", "diabetes", "white-wine", "sin", "exp", "make_reg"]
+data_type_vec = ["diabetes"]  # ["auto-mpg", "kc_house_data", "diabetes", "white-wine", "sin", "exp", "make_reg"]
 snr_db_vec = np.linspace(-25, 15, 5)
 sigma_profile_type = "linear"  # uniform / good-outlier / linear
 _m_iterations = [1, 32, 128]  # Number of weak-learners

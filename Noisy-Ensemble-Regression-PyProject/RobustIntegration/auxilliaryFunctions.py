@@ -64,4 +64,7 @@ def partition_dataset(data_type=None, test_size=0.2, n_samples=100, noise=0.1):
                                                                                random_state=42)
         return X_train, y_train, X_test, y_test
 
+def is_psd_mat(matrix):
+        return np.all(np.linalg.eigvals(matrix) >= 0)
+
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -

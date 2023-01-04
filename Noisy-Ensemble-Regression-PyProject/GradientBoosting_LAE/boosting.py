@@ -184,7 +184,8 @@ class RobustRegressionGB():
             # Growing the tree on the residuals
             _weak_learner = Tree(
                 max_depth=self.max_depth,
-                min_samples_leaf=self.min_sample_leaf
+                min_samples_leaf=self.min_sample_leaf,
+                criterion="absolute_error"
             )
             _weak_learner.fit(X, -np.sign(self._residuals))
             self.weak_learners.append(_weak_learner)  # Appending the weak learner to the list
