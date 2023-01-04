@@ -128,6 +128,7 @@ class rBaggReg:  # Robust Bagging Regressor
             base_prediction = np.zeros([self.n_base_estimators, len(y)])
             for k, base_estimator in enumerate(self.bagging_regressor.estimators_):
                 base_prediction[k, :] = base_estimator.predict(X)
+
             # Setting the weak learner weight via gradient-descent optimization
             weights_init, err = np.array([[1.0]]), base_prediction - y
             def grad_rgem_mae(alpha, noise_cov, err):

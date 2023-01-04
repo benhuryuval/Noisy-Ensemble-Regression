@@ -2,6 +2,7 @@
 # from GradientBoosting.tree import Tree
 from sklearn.tree import DecisionTreeRegressor as Tree
 import scipy as sp
+import RobustIntegration.auxilliaryFunctions as auxfun
 
 # Data wrangling 
 import pandas as pd
@@ -92,38 +93,6 @@ class RobustRegressionGB():
         self._residuals = self._predictions - y
 
     ''' - - - LAE GradBoost: Unconstrained weight optimization - - - '''
-    def calc_cost(self, gamma, sigma):
-        """ This function calculates the cost function w.r.t. gamma_t"""
-        mu = gamma*self._predictions_wl + self._residuals
-        if sigma == 0.0:  # FoldedNormal analysis requires sigma>0
-            a, b, d = 0.0, 0.0, 1.0
-            c = np.abs(mu)
-        else:
-            gs = np.abs(gamma) * np.abs(sigma)
-            a = np.sqrt(2 / np.pi) * gs
-            b = np.exp(-0.5 * mu ** 2 / gs**2)
-            d = 1 - 2 * sp.stats.norm.cdf(-mu / gs)
-            c = mu
-        return a, b, c, d
-
-    def grad_gamma(self, gamma, sigma):
-        """ This function calculates the gradient of the cost function w.r.t. gamma_t"""
-        a, b, c, d = self.calc_cost(gamma, sigma)
-        phi = self._predictions_wl
-        mu = gamma*phi + self._residuals
-        if sigma == 0.0:  # FoldedNormal analysis requires sigma>0
-            grad = np.mean(phi * np.sign(mu), axis=0, keepdims=True)
-            cost = np.mean(a * b + c * d)
-        else:
-            gs = np.abs(gamma) * np.abs(sigma)
-            a_tag = np.sqrt(2 / np.pi) * sigma * np.sign(gamma)
-            c_tag = phi
-            b_tag = -mu * (phi*gamma - mu)/(gamma**3 * sigma**2) * np.exp(-0.5*(mu/gs)**2)
-            d_tag = 2 * sp.stats.norm.pdf(-0.5*mu/gs**2) * (phi*gs - np.sign(gamma)*sigma*mu)/(gs**2)
-            grad = np.mean(a_tag*b + b_tag*a + c_tag*d + d_tag*c, axis=0, keepdims=True)
-            cost = np.mean(a*b+c*d)
-        return grad, cost
-
     def gradient_descent(self, gamma_init, sigma, max_iter=30000, min_iter=10, tol=1e-5, learn_rate=0.2, decay_rate=0.2):
         """ This function calculates optimal coefficients with gradient descent method using an early stop criteria and
         selecting the minimal value reached throughout the iterations """
@@ -195,7 +164,48 @@ class RobustRegressionGB():
 
             # Setting the weak learner weight
             gamma_init, sigma = np.array([[1.0]]), np.sqrt(self.TrainNoiseCov[_, _])
-            cost_evolution, gamma_evolution, stop_iter = self.gradient_descent(gamma_init, sigma, max_iter=1000, min_iter=100, tol=1e-12, learn_rate=0.3, decay_rate=0.2)
+
+            def calc_args(_predictions_wl, _residuals, gamma, sigma):
+                """ This function calculates the arguments a,b,c,d in the cost function w.r.t. gamma_t"""
+                mu = gamma * _predictions_wl + _residuals
+                if sigma == 0.0:  # FoldedNormal analysis requires sigma>0
+                    a, b, d = 0.0, 0.0, 1.0
+                    c = np.abs(mu)
+                else:
+                    gs = np.abs(gamma) * np.abs(sigma)
+                    a = np.sqrt(2 / np.pi) * gs
+                    b = np.exp(-0.5 * mu ** 2 / gs ** 2)
+                    d = 1 - 2 * sp.stats.norm.cdf(-mu / gs)
+                    c = mu
+                return a, b, c, d
+
+            def grad_gb_mae(_predictions_wl, _residuals, gamma, sigma):
+                """ This function calculates the gradient of the cost function w.r.t. gamma_t"""
+                a, b, c, d = calc_args(_predictions_wl, _residuals, gamma, sigma)
+                phi = _predictions_wl
+                mu = gamma * phi + _residuals
+                if sigma == 0.0:  # FoldedNormal analysis requires sigma>0
+                    grad = np.mean(phi * np.sign(mu), axis=0, keepdims=True)
+                else:
+                    gs = np.abs(gamma) * np.abs(sigma)
+                    a_tag = np.sqrt(2 / np.pi) * sigma * np.sign(gamma)
+                    c_tag = phi
+                    b_tag = -mu * (phi * gamma - mu) / (gamma ** 3 * sigma ** 2) * np.exp(-0.5 * (mu / gs) ** 2)
+                    d_tag = 2 * sp.stats.norm.pdf(-0.5 * mu / gs ** 2) * (phi * gs - np.sign(gamma) * sigma * mu) / (
+                                gs ** 2)
+                    grad = np.mean(a_tag * b + b_tag * a + c_tag * d + d_tag * c, axis=0, keepdims=True)
+                return grad
+
+            def cost_gb_mae(_predictions_wl, _residuals, gamma, sigma):
+                a, b, c, d = calc_args(_predictions_wl, _residuals, gamma, sigma)
+                return np.mean(a * b + c * d)
+
+            grad_fun = lambda gamma: grad_gb_mae(self._predictions_wl, self._residuals, gamma, sigma)
+            cost_fun = lambda gamma: cost_gb_mae(self._predictions_wl, self._residuals, gamma, sigma)
+            cost_evolution, gamma_evolution, stop_iter = auxfun.gradient_descent_scalar(gamma_init, grad_fun, cost_fun,
+                                                                               max_iter=1000, min_iter=100,
+                                                                               tol=1e-12, learn_rate=0.3, decay_rate=0.2)
+            # cost_evolution, gamma_evolution, stop_iter = self.gradient_descent(gamma_init, sigma, max_iter=1000, min_iter=100, tol=1e-12, learn_rate=0.3, decay_rate=0.2)
             new_gamma = gamma_evolution[np.argmin(cost_evolution[0:stop_iter])]
 
             # - - - - - - - - - - - - -

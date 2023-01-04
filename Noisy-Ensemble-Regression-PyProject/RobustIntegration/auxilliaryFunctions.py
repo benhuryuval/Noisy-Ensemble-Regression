@@ -93,5 +93,27 @@ def gradient_descent_scalar(gamma_init, grad_fun, cost_fun, max_iter=30000, min_
                 step = step.dot(decay_rate) - grad.dot(learn_rate_upd)
                 # step = -grad.dot(learn_rate)
                 gamma_evolution[i+1] = gamma_evolution[i] + step
+        # - - - - - - - - - - - - - - - - - - - - - - - - - -
+        # LAE plotting for visualization and debug
+        if False:
+            npts = 10000
+            g_vec = np.linspace(-10, 10, npts)
+            lae = np.array(np.zeros((npts, 1)))
+            for g_idx, g_ in enumerate(g_vec):
+                a, b, c, d = self.calc_cost(g_, sigma)
+                lae[g_idx, 0] = np.mean(a * b + c * d)
+
+            fig_lae = plt.figure(figsize=(12, 8))
+            plt.plot(g_vec, lae, '.', label="LAE")
+            plt.xlabel('gamma')
+            plt.ylabel('LAE')
+            plt.legend()
+            plt.show(block=False)
+
+            plt.plot(np.concatenate(gamma_evolution[0:i], axis=0)[:,0], np.array(cost_evolution[0:i]), 'o', label="GD")
+            plt.close(fig_lae)
+        # - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+        return cost_evolution, gamma_evolution, i
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
