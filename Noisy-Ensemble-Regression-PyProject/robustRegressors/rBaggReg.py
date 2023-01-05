@@ -1,6 +1,6 @@
 import numpy as np
 import scipy as sp
-import RobustIntegration.auxilliaryFunctions as auxfun
+import robustRegressors.auxilliaryFunctions as auxfun
 
 class rBaggReg:  # Robust Bagging Regressor
     # This class contains the implementation of Bagging aggregation methods for a given regression

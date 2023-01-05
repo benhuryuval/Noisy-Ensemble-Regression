@@ -17,9 +17,8 @@ if module_path not in sys.path:
     sys.path.append(module_path)
 import matplotlib.pyplot as plt  # Plotting
 # Noisy regression classes
-from GradientBoosting.boosting import RobustRegressionGB as rGradBoost_MSE  # Regression boosting MSE
-from GradientBoosting_LAE.boosting import RobustRegressionGB as rGradBoost_MAE  # Regression boosting MAE
-from RobustIntegration_LAE.BaggingRobustRegressor_LAE import rBaggReg as rBaggReg
+from robustRegressors.rBaggReg import rBaggReg as rBaggReg
+from robustRegressors.rGradBoost import rGradBoost as rGradBoost
 import RobustIntegration.auxilliaryFunctions as aux
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -34,23 +33,24 @@ data_type_vec = ["sin"]  # kc_house_data / diabetes / white-wine / sin / exp / m
 test_size = 0.5  # test data fraction
 KFold_n_splits = 2  # Number of k-fold x-validation dataset splits
 
-ensemble_size = [16]  # Number of weak-learners
+ensemble_size = [16] # Number of weak-learners
 tree_max_depth = 6  # Maximal depth of decision tree
 learning_rate = 0.1  # learning rate of gradient boosting
 min_sample_leaf = 10
 
 snr_db_vec = np.linspace(-40, 15, 10)  # [-10]
 n_repeat = 500  # Number of iterations for estimating expected performance
-sigma_profile_type = "linear"  # uniform / good-outlier / linear / noiseless_fraction
+sigma_profile_type = "linear"  # uniform / linear / noiseless_fraction
 noisless_fraction = 0.5
 noisless_scale = 1/100
 
 n_samples = 500  # Size of the (synthetic) dataset  in case of synthetic dataset
 train_noise = 0.1  # Standard deviation of the measurement / training noise in case of synthetic dataset
 
-criterion = "mse"  # "mse" / "mae"
+criterion = "mae"  # "mse" / "mae"
 reg_algo = "GradBoost"  # "GradBoost"
 bagging_method = "lr"  # "bem" / "gem" / "lr"
+gradboost_robust_flag = True
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 # Main simulation loop(s)
@@ -90,14 +90,12 @@ if reg_algo == "GradBoost":
 
                                 # - - - CLEAN GRADIENT BOOSTING - - -
                                 # Initiating the tree
-                                if criterion=="mse":
-                                        rgb_cln = rGradBoost_MSE(X=X_train, y=y_train, max_depth=tree_max_depth,
-                                                                     min_sample_leaf=min_sample_leaf,
-                                                                     TrainNoiseCov=np.zeros([_m + 1, _m + 1]))
-                                elif criterion=="mae":
-                                        rgb_cln = rGradBoost_MAE(X=X_train, y=y_train, max_depth=tree_max_depth,
-                                                                 min_sample_leaf=min_sample_leaf,
-                                                                 TrainNoiseCov=np.zeros([_m + 1, _m + 1]))
+                                rgb_cln = rGradBoost(X=X_train, y=y_train, max_depth=tree_max_depth,
+                                                        min_sample_leaf=min_sample_leaf,
+                                                        TrainNoiseCov=np.zeros([_m + 1, _m + 1]),
+                                                        RobustFlag = gradboost_robust_flag,
+                                                        criterion=criterion)
+
 
                                 # Fitting on training data
                                 rgb_cln.fit(X_train, y_train, m=_m)
@@ -113,7 +111,7 @@ if reg_algo == "GradBoost":
 
                                         # Set noise variance
                                         snr = 10 ** (snr_db / 10)
-                                        sig_var = np.var(y_train)
+                                        sig_var = np.var(y_train*ensemble_size)
 
                                         # Setting noise covariance matrix
                                         if _m == 0:  # predictor is the mean of training set
@@ -122,33 +120,29 @@ if reg_algo == "GradBoost":
                                         elif sigma_profile_type == "uniform":
                                                 sigma0 = sig_var / (snr * _m)
                                                 noise_covariance = np.diag(sigma0 * np.ones([_m + 1, ]))
-                                        elif sigma_profile_type == "good-outlier":
-                                                a = 1 / 10  # outlier variance ratio
-                                                sigma0 = sig_var / (snr * (a + _m - 1))
-                                                tmp = sigma0 * np.ones([_m + 1, ])
-                                                tmp[0] *= a
-                                                noise_covariance = np.diag(tmp)
                                         elif sigma_profile_type == "linear":
-                                                sigma_profile = np.linspace(1, 1 / (_m + 1), _m + 1)
-                                                curr_snr = sig_var / sigma_profile.sum()
-                                                sigma_profile *= curr_snr / snr
+                                                sigma_profile = np.linspace(1, 1/(_m+1), _m+1)
+                                                sigma0 = sig_var / (snr * sigma_profile.sum())
+                                                sigma_profile *= sigma0
+                                                noise_covariance = np.diag(sigma_profile)
+                                        elif sigma_profile_type == "noiseless_fraction":
+                                                sigma0 = sig_var / (snr * (_m+1) * (noisless_fraction + (1-noisless_fraction)/noisless_scale))
+                                                sigma_profile = sigma0 * np.ones([_m+1, ])
+                                                sigma_profile[0:round(noisless_fraction * (_m+1))-1] *= noisless_scale
                                                 noise_covariance = np.diag(sigma_profile)
 
+
                                         # - - - NON-ROBUST / ROBUST GRADIENT BOOSTING - - -
-                                        if criterion == "mse":
-                                                rgb_nr = rGradBoost_MSE(X=X_train, y=y_train, max_depth=tree_max_depth,
-                                                                         min_sample_leaf=min_sample_leaf,
-                                                                         TrainNoiseCov=np.zeros([_m + 1, _m + 1]))
-                                                rgb_r = rGradBoost_MSE(X=X_train, y=y_train, max_depth=tree_max_depth,
-                                                                        min_sample_leaf=min_sample_leaf,
-                                                                        TrainNoiseCov=noise_covariance)
-                                        elif criterion == "mae":
-                                                rgb_nr = rGradBoost_MAE(X=X_train, y=y_train, max_depth=tree_max_depth,
-                                                                         min_sample_leaf=min_sample_leaf,
-                                                                         TrainNoiseCov=np.zeros([_m + 1, _m + 1]))
-                                                rgb_r = rGradBoost_MAE(X=X_train, y=y_train, max_depth=tree_max_depth,
-                                                                         min_sample_leaf=min_sample_leaf,
-                                                                         TrainNoiseCov=noise_covariance)
+                                        rgb_nr = rGradBoost(X=X_train, y=y_train, max_depth=tree_max_depth,
+                                                                min_sample_leaf=min_sample_leaf,
+                                                                TrainNoiseCov=np.zeros([_m + 1, _m + 1]),
+                                                                RobustFlag=gradboost_robust_flag,
+                                                                criterion=criterion)
+                                        rgb_r = rGradBoost(X=X_train, y=y_train, max_depth=tree_max_depth,
+                                                                min_sample_leaf=min_sample_leaf,
+                                                                TrainNoiseCov=noise_covariance,
+                                                                RobustFlag=gradboost_robust_flag,
+                                                                criterion=criterion)
 
                                         # Fitting on training data with noise: non-robust and robust
                                         rgb_nr.fit(X_train, y_train, m=_m)
