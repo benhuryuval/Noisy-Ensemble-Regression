@@ -48,6 +48,7 @@ class rBaggReg:  # Robust Bagging Regressor
                 self.weights = v_min.T / v_min.sum()
             else:
                 print("Error: Invalid covariance matrix.")
+                ValueError('Invalid covariance matrix')
                 self.weights = None
 
         elif self.integration_type == 'lr':
@@ -76,6 +77,7 @@ class rBaggReg:  # Robust Bagging Regressor
                 v_min = v[:, min_w_idxs].mean(axis=1)
                 self.weights = v_min.T / v_min.sum()
             else:
+                print('Invalid covariance matrix.')
                 ValueError('Invalid covariance matrix')
                 self.weights = None
 
@@ -86,6 +88,7 @@ class rBaggReg:  # Robust Bagging Regressor
             self.weights = np.linalg.inv(base_prediction.dot(base_prediction.T)/len(y) + self.noise_covariance).dot(base_prediction).dot(y)/len(y)  # least-squares
 
         else:
+            print('Invalid integration type.')
             ValueError('Invalid integration type.')
             self.weights = None
 
@@ -130,9 +133,9 @@ class rBaggReg:  # Robust Bagging Regressor
                 base_prediction[k, :] = base_estimator.predict(X)
 
             # Setting the weak learner weight via gradient-descent optimization
-            weights_init, err = np.array([[1.0]]), base_prediction - y
+            weights_init, err = np.array([np.ones([self.n_base_estimators, ])]), base_prediction - y
             def grad_rgem_mae(alpha, noise_cov, err):
-                mu = alpha.dot(err).T
+                mu = alpha.dot(err)
                 sigma = np.sqrt(alpha.dot(noise_cov.dot(alpha.T)))
 
                 mu_tag = err
@@ -145,24 +148,25 @@ class rBaggReg:  # Robust Bagging Regressor
                     np.sqrt(2 / np.pi) * sigma * b_tag +                        \
                     mu_tag * (1 - 2*sp.stats.norm.cdf(-mu/sigma)) +             \
                     mu*d_tag
-                return grad
+                return grad.mean(1)
 
             def cost_rgem_mae(alpha, noise_cov, err):
-                mu = alpha.dot(err).T
+                mu = alpha.dot(err)
                 sigma = np.sqrt(alpha.dot(noise_cov.dot(alpha.T)))
 
                 cost = np.sqrt(2/np.pi)*sigma*np.exp(-0.5 * (mu/sigma)**2) +  \
                     mu * (1 - 2*sp.stats.norm.cdf(-mu/sigma))
-                return cost
+                return cost.mean(1)
 
             grad_fun = lambda weights: grad_rgem_mae(weights, self.noise_covariance, err)
             cost_fun = lambda weights: cost_rgem_mae(weights, self.noise_covariance, err)
             cost_evolution, weights_evolution, stop_iter = auxfun.gradient_descent(weights_init, grad_fun, cost_fun,
                                                                                max_iter=1000, min_iter=100,
-                                                                               tol=1e-12, learn_rate=0.3, decay_rate=0.2)
+                                                                               tol=1e-12, learn_rate=0.05, decay_rate=0.2)
             self.weights = weights_evolution[np.argmin(cost_evolution[0:stop_iter])]
 
         else:
+            print('Invalid integration type.')
             ValueError('Invalid integration type.')
             self.weights = None
 

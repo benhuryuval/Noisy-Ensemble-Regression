@@ -94,24 +94,22 @@ def gradient_descent_scalar(gamma_init, grad_fun, cost_fun, max_iter=30000, min_
                 # step = -grad.dot(learn_rate)
                 gamma_evolution[i+1] = gamma_evolution[i] + step
         # - - - - - - - - - - - - - - - - - - - - - - - - - -
-        # LAE plotting for visualization and debug
+        # Cost function visualization for debug
         if False:
+            import matplotlib.pyplot as plt
             npts = 10000
             g_vec = np.linspace(-10, 10, npts)
-            lae = np.array(np.zeros((npts, 1)))
             for g_idx, g_ in enumerate(g_vec):
-                a, b, c, d = self.calc_cost(g_, sigma)
-                lae[g_idx, 0] = np.mean(a * b + c * d)
+                cost_vec = cost_fun(g_)
 
-            fig_lae = plt.figure(figsize=(12, 8))
-            plt.plot(g_vec, lae, '.', label="LAE")
+            fig_cost = plt.figure(figsize=(12, 8))
+            plt.plot(g_vec, cost_vec, '.', label="Cost")
             plt.xlabel('gamma')
-            plt.ylabel('LAE')
-            plt.legend()
+            plt.ylabel('Cost')
             plt.show(block=False)
 
             plt.plot(np.concatenate(gamma_evolution[0:i], axis=0)[:,0], np.array(cost_evolution[0:i]), 'o', label="GD")
-            plt.close(fig_lae)
+            plt.close(fig_cost)
         # - - - - - - - - - - - - - - - - - - - - - - - - - -
 
         return cost_evolution, gamma_evolution, i
@@ -123,10 +121,11 @@ def gradient_descent(gamma_init, grad_fun, cost_fun, max_iter=30000, min_iter=10
     selecting the minimal value reached throughout the iterations """
 
     # initializations
-    cost_evolution = [np.array([[0.0]])] * max_iter
-    gamma_evolution = [np.array([[0.0]])] * max_iter
+    cost_evolution = [None] * max_iter
+    gamma_evolution = [None] * max_iter
     eps = 1e-8  # tolerance value for adagrad learning rate update
-    step, i = np.array([[0.0]]), 0  # initialize gradient-descent step to 0, iteration index in evolution
+    vec_siz = len(gamma_init.ravel())
+    step, i = np.array([np.zeros(vec_siz)]), 0  # initialize gradient-descent step to 0, iteration index in evolution
 
     # perform remaining iterations of gradient-descent
     gamma_evolution[0] = gamma_init
@@ -135,34 +134,30 @@ def gradient_descent(gamma_init, grad_fun, cost_fun, max_iter=30000, min_iter=10
         grad, cost_evolution[i] = grad_fun(gamma_evolution[i]), cost_fun(gamma_evolution[i])
 
         # check convergence
-        if i > max(min_iter, 0) and np.abs(cost_evolution[i] - cost_evolution[i - 1]) <= tol:
+        if i > max(min_iter, 0) and np.abs(cost_evolution[i] - cost_evolution[i-1]) <= tol:
             break
         else:
             # update learning rate and advance according to AdaGrad
-            Gt = np.sum(np.concatenate(gamma_evolution[0:i + 1]) ** 2)
-            learn_rate_upd = np.divide(learn_rate, np.sqrt(Gt + eps))
-            step = step.dot(decay_rate) - grad.dot(learn_rate_upd)
-            # step = -grad.dot(learn_rate)
+            # Gt = np.sum(np.concatenate(gamma_evolution[0:i + 1]) ** 2)
+            # learn_rate_upd = np.divide(learn_rate, np.sqrt(Gt + eps))
+            # step = step.dot(decay_rate) - grad.dot(learn_rate_upd)
+
+            learn_rate_upd = np.divide(np.eye(vec_siz) * learn_rate,
+                                       np.sqrt(np.diag(np.power(np.squeeze(grad), 2))) + eps)
+            step = decay_rate * step - learn_rate_upd.dot(grad)
+
             gamma_evolution[i + 1] = gamma_evolution[i] + step
     # - - - - - - - - - - - - - - - - - - - - - - - - - -
     # LAE plotting for visualization and debug
     if False:
-        npts = 10000
-        g_vec = np.linspace(-10, 10, npts)
-        lae = np.array(np.zeros((npts, 1)))
-        for g_idx, g_ in enumerate(g_vec):
-            a, b, c, d = self.calc_cost(g_, sigma)
-            lae[g_idx, 0] = np.mean(a * b + c * d)
-
-        fig_lae = plt.figure(figsize=(12, 8))
-        plt.plot(g_vec, lae, '.', label="LAE")
-        plt.xlabel('gamma')
-        plt.ylabel('LAE')
+        import matplotlib.pyplot as plt
+        fig_cost = plt.figure(figsize=(12, 8))
+        plt.plot(range(0, i), cost_evolution[0:i], '.', label="Cost")
+        plt.xlabel('Iteration')
+        plt.ylabel('Cost')
         plt.legend()
         plt.show(block=False)
-
-        plt.plot(np.concatenate(gamma_evolution[0:i], axis=0)[:, 0], np.array(cost_evolution[0:i]), 'o', label="GD")
-        plt.close(fig_lae)
+        plt.close(fig_cost)
     # - - - - - - - - - - - - - - - - - - - - - - - - - -
 
     return cost_evolution, gamma_evolution, i

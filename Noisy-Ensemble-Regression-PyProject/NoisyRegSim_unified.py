@@ -40,7 +40,7 @@ min_sample_leaf = 10
 
 snr_db_vec = np.linspace(-40, 15, 10)  # [-10]
 n_repeat = 500  # Number of iterations for estimating expected performance
-sigma_profile_type = "linear"  # uniform / linear / noiseless_fraction
+sigma_profile_type = "linear"  # uniform / linear / noiseless_fraction / noiseless_even (for GradBoost)
 noisless_fraction = 0.5
 noisless_scale = 1/100
 
@@ -48,9 +48,14 @@ n_samples = 500  # Size of the (synthetic) dataset  in case of synthetic dataset
 train_noise = 0.1  # Standard deviation of the measurement / training noise in case of synthetic dataset
 
 criterion = "mae"  # "mse" / "mae"
-reg_algo = "GradBoost"  # "GradBoost"
-bagging_method = "lr"  # "bem" / "gem" / "lr"
+reg_algo = "Bagging"  # "GradBoost" / "Bagging"
+bagging_method = "gem"  # "bem" / "gem" / "lr"
 gradboost_robust_flag = True
+
+# Verify inputs
+if reg_algo == "Bagging" and bagging_method == "lr":
+        ValueError('Invalid bagging_method.')
+
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 # Main simulation loop(s)
@@ -114,7 +119,7 @@ if reg_algo == "GradBoost":
                                         sig_var = np.var(y_train*ensemble_size)
 
                                         # Setting noise covariance matrix
-                                        if _m == 0:  # predictor is the mean of training set
+                                        if _m == 0:
                                                 sigma_profile = sig_var / snr  # noise variance
                                                 noise_covariance = np.diag(np.reshape(sigma_profile, (1,)))
                                         elif sigma_profile_type == "uniform":
@@ -128,9 +133,13 @@ if reg_algo == "GradBoost":
                                         elif sigma_profile_type == "noiseless_fraction":
                                                 sigma0 = sig_var / (snr * (_m+1) * (noisless_fraction + (1-noisless_fraction)/noisless_scale))
                                                 sigma_profile = sigma0 * np.ones([_m+1, ])
-                                                sigma_profile[0:round(noisless_fraction * (_m+1))-1] *= noisless_scale
+                                                sigma_profile[0:2:round(noisless_fraction * (_m+1))-1] *= noisless_scale
                                                 noise_covariance = np.diag(sigma_profile)
-
+                                        elif sigma_profile_type == "noiseless_even":
+                                                sigma0 = sig_var / (snr * (_m+1) * (noisless_fraction + (1-noisless_fraction)/noisless_scale))
+                                                sigma_profile = sigma0 * np.ones([_m+1, ])
+                                                sigma_profile[0::2] *= noisless_scale
+                                                noise_covariance = np.diag(sigma_profile)
 
                                         # - - - NON-ROBUST / ROBUST GRADIENT BOOSTING - - -
                                         rgb_nr = rGradBoost(X=X_train, y=y_train, max_depth=tree_max_depth,
