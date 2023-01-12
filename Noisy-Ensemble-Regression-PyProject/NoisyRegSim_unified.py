@@ -374,5 +374,30 @@ if reg_algo == "Bagging":
                                                         'Bagging, Robust': pd.Series(10*np.log10(err_r[:, _m_idx, :].mean(1)))},
                                                        axis=1)
                                 results_df.to_csv(results_path + data_type + "_" + _m.__str__() + "_gbr_" + criterion + ".csv")
+
+                        if plot_flag:
+                                # Plot error results
+                                for _m_idx, _m in enumerate(ensemble_size):
+                                        plt.figure(figsize=(12, 8))
+                                        plt.plot(snr_db_vec, 10 * np.log10(err_cln[:, _m_idx, :].mean(1)), '-k', label='Clean')
+                                        plt.plot(snr_db_vec, 10 * np.log10(err_nr[:, _m_idx, :].mean(1)), '-xr',
+                                                 label='Non-robust')
+                                        plt.plot(snr_db_vec, 10 * np.log10(err_r[:, _m_idx, :].mean(1)), '-ob', label='Robust')
+                                        plt.title("dataset: " + str(data_type) + ", T=" + str(
+                                                _m) + " regressors\nnoise=" + sigma_profile_type)
+                                        plt.xlabel('SNR [dB]')
+                                        plt.ylabel(criterion.upper()+' [dB]')
+                                        plt.legend()
+                                        plt.show(block=False)
+                                # Plot error gain results
+                                for _m_idx, _m in enumerate(ensemble_size):
+                                        plt.figure(figsize=(12, 8))
+                                        plt.plot(snr_db_vec, 10 * np.log10(err_nr[:, _m_idx, :].mean(1)) - 10 * np.log10(
+                                                err_r[:, _m_idx, :].mean(1)), '-ob', label='Robust')
+                                        plt.title("dataset: " + str(data_type) + ", T=" + str(
+                                                _m) + " regressors\nnoise=" + sigma_profile_type)
+                                        plt.xlabel('SNR [dB]')
+                                        plt.ylabel(criterion.upper()+' Gain [dB]')
+                                        plt.show(block=False)
                         print("---------------------------------------------------------------------------\n")
 
