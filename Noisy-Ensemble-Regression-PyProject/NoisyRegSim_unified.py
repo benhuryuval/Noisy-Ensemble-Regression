@@ -38,9 +38,9 @@ tree_max_depth = 6  # Maximal depth of decision tree
 learning_rate = 0.1  # learning rate of gradient boosting
 min_sample_leaf = 10
 
-snr_db_vec = np.linspace(-40, 15, 10)  # [-10]
+snr_db_vec = np.linspace(-30, 20, 6)  # [-10]
 n_repeat = 500  # Number of iterations for estimating expected performance
-sigma_profile_type = "linear"  # uniform / linear / noiseless_fraction / noiseless_even (for GradBoost)
+sigma_profile_type = "uniform"  # uniform / linear / noiseless_fraction / noiseless_even (for GradBoost)
 noisless_fraction = 0.5
 noisless_scale = 1/100
 
@@ -270,22 +270,22 @@ if reg_algo == "Bagging":
                                 # - - - CLEAN BAGGING - - -
                                 # Initiating the tree
                                 if criterion=="mse":
-                                        cln_bem = sklearn.ensemble.BaggingRegressor(
+                                        cln_reg = sklearn.ensemble.BaggingRegressor(
                                                 sk.tree.DecisionTreeRegressor(max_depth=tree_max_depth),
                                                 n_estimators=_m, random_state=rng)
                                 elif criterion=="mae":
-                                        cln_bem = sklearn.ensemble.BaggingRegressor(
+                                        cln_reg = sklearn.ensemble.BaggingRegressor(
                                                 sk.tree.DecisionTreeRegressor(max_depth=tree_max_depth,
                                                                               criterion="absolute_error"),
                                                 n_estimators=_m, random_state=rng)
 
                                 # Fitting on training data
-                                cln_bem.fit(X_train, y_train[:, 0])
+                                cln_reg.fit(X_train, y_train[:, 0])
 
                                 # Predicting without noise (for reference)
-                                pred_cln = cln_bem.predict(X_test)
+                                pred_cln = cln_reg.predict(X_test)
                                 # Saving the predictions to the training set
-                                err_cln[:, _m_idx, kfold_idx] = aux.calc_error(y_test[:, 0], pred_cln, criterion)
+                                err_cln[:, _m_idx, kfold_idx] = aux.calc_error(y_test, pred_cln, criterion)
                                 # - - - - - - - - - - - - - - - - -
 
                                 for idx_snr_db, snr_db in enumerate(snr_db_vec):
@@ -311,39 +311,29 @@ if reg_algo == "Bagging":
                                                 noise_covariance = np.diag(sigma_profile)
 
                                         # - - - NON-ROBUST / ROBUST GRADIENT BOOSTING - - -
-                                        noisy_bem = rBaggReg(cln_bem, noise_covariance, _m, bagging_method)
-                                        noisy_rbem = rBaggReg(cln_bem, noise_covariance, _m, "robust-"+bagging_method)
-                                        # noisy_gem = rBaggReg_MSE(cln_bem, noise_covariance, _m, 'gem')
-                                        # noisy_rgem = rBaggReg_MSE(cln_bem, noise_covariance, _m, 'robust-gem')
-                                        if criterion == "mse":
-                                                a=1
-                                                # noisy_lr = rBaggReg_MSE(cln_bem, noise_covariance, _m, 'lr')
-                                                # noisy_rlr = rBaggReg_MSE(cln_bem, noise_covariance, _m, 'robust-lr')
+                                        noisy_reg = rBaggReg(cln_reg, noise_covariance, _m, bagging_method)
+                                        noisy_rreg = rBaggReg(cln_reg, noise_covariance, _m, "robust-"+bagging_method)
 
                                         # Fitting on training data with noise: non-robust and robust
                                         if criterion == "mse":
-                                                noisy_bem.fit_mse(X_train, y_train[:, 0])
-                                                noisy_rbem.fit_mse(X_train, y_train[:, 0])
-                                                # noisy_gem.fit(X_train, y_train)
-                                                # noisy_rgem.fit(X_train, y_train)
-                                                # noisy_lr.fit(X_train, y_train)
-                                                # noisy_rlr.fit(X_train, y_train)
+                                                noisy_reg.fit_mse(X_train, y_train[:, 0])
+                                                noisy_rreg.fit_mse(X_train, y_train[:, 0])
                                         elif criterion == "mae":
-                                                noisy_bem.fit_mae(X_train, y_train[:, 0])
-                                                noisy_rbem.fit_mae(X_train, y_train[:, 0])
-                                                # noisy_gem.fit(X_train, y_train)
-                                                # noisy_rgem.fit(X_train, y_train)
+                                                noisy_reg.fit_mae(X_train, y_train[:, 0])
+                                                noisy_rreg.fit_mae(X_train, y_train[:, 0])
                                         # - - - - - - - - - - - - - - - - -
 
                                         # Predicting with noise
                                         pred_nr, pred_r = np.zeros(len(y_test)), np.zeros(len(y_test))
                                         for _n in range(0, n_repeat):
                                                 # - - - NON-ROBUST - - -
-                                                pred_nr = noisy_bem.predict(X_test)
-                                                err_nr[idx_snr_db, _m_idx, kfold_idx] += aux.calc_error(y_test[:, 0], pred_nr, criterion)
+                                                pred_nr = noisy_reg.predict(X_test)
+                                                err_nr[idx_snr_db, _m_idx, kfold_idx] += aux.calc_error(y_test, pred_nr, criterion)
+                                                # err_nr[idx_snr_db, _m_idx, kfold_idx] += aux.calc_error(pred_cln, pred_nr, criterion)
                                                 # - - - ROBUST - - -
-                                                pred_r = noisy_rbem.predict(X_test)
-                                                err_r[idx_snr_db, _m_idx, kfold_idx] += aux.calc_error(y_test[:, 0], pred_r, criterion)
+                                                pred_r = noisy_rreg.predict(X_test)
+                                                err_r[idx_snr_db, _m_idx, kfold_idx] += aux.calc_error(y_test, pred_r, criterion)
+                                                # err_r[idx_snr_db, _m_idx, kfold_idx] += aux.calc_error(pred_cln, pred_r, criterion)
 
                                         # Expectation of error (over multiple realizations)
                                         err_nr[idx_snr_db, _m_idx, kfold_idx] /= n_repeat

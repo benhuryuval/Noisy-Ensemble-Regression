@@ -138,18 +138,15 @@ def gradient_descent(gamma_init, grad_fun, cost_fun, max_iter=30000, min_iter=10
             break
         else:
             # update learning rate and advance according to AdaGrad
-            # Gt = np.sum(np.concatenate(gamma_evolution[0:i + 1]) ** 2)
-            # learn_rate_upd = np.divide(learn_rate, np.sqrt(Gt + eps))
-            # step = step.dot(decay_rate) - grad.dot(learn_rate_upd)
-
-            learn_rate_upd = np.divide(np.eye(vec_siz) * learn_rate,
-                                       np.sqrt(np.diag(np.power(np.squeeze(grad), 2))) + eps)
+            Gt = np.sum(np.concatenate(gamma_evolution[0:i+1]) ** 2, axis=0)
+            learn_rate_upd = np.divide(learn_rate*np.eye(vec_siz), np.sqrt(Gt + eps))
             step = decay_rate * step - learn_rate_upd.dot(grad)
+            # step = -learn_rate*grad
 
             gamma_evolution[i + 1] = gamma_evolution[i] + step
     # - - - - - - - - - - - - - - - - - - - - - - - - - -
     # LAE plotting for visualization and debug
-    if False:
+    if True:
         import matplotlib.pyplot as plt
         fig_cost = plt.figure(figsize=(12, 8))
         plt.plot(range(0, i), cost_evolution[0:i], '.', label="Cost")
@@ -165,8 +162,8 @@ def gradient_descent(gamma_init, grad_fun, cost_fun, max_iter=30000, min_iter=10
 
 def calc_error(x, y, criterion):
     if criterion == "mse":
-        return np.sqrt(np.square(np.subtract(x, y)).mean())
+        return np.sqrt(np.square(np.subtract(x.ravel(), y.ravel())).mean())
     elif criterion == "mae":
-        return np.abs(np.subtract(x, y)).mean()
+        return np.abs(np.subtract(x.ravel(), y.ravel())).mean()
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -

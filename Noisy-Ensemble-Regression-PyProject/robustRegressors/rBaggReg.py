@@ -133,14 +133,14 @@ class rBaggReg:  # Robust Bagging Regressor
                 base_prediction[k, :] = base_estimator.predict(X)
 
             # Setting the weak learner weight via gradient-descent optimization
-            weights_init, err = np.array([np.ones([self.n_base_estimators, ])]), base_prediction - y
-            def grad_rgem_mae(alpha, noise_cov, err):
-                mu = alpha.dot(err)
+            weights_init = np.array([np.ones([self.n_base_estimators, ])])/self.n_base_estimators
+            def grad_rgem_mae(alpha, noise_cov, base_prediction, y):
+                mu = alpha.dot(base_prediction) - y
                 sigma = np.sqrt(alpha.dot(noise_cov.dot(alpha.T)))
 
-                mu_tag = err
+                mu_tag = base_prediction
                 sig_tag = (noise_cov.dot(alpha.T)) / sigma
-                mu_ovr_sig_tag = (err*sigma - mu*sig_tag) / (sigma**2)
+                mu_ovr_sig_tag = (base_prediction*sigma - mu*sig_tag) / (sigma**2)
                 b_tag = -1 * np.exp(-0.5 * (mu/sigma)**2) * (mu/sigma) * mu_ovr_sig_tag
                 d_tag = 2*sp.stats.norm.pdf(-mu/sigma) * mu_ovr_sig_tag
 
@@ -150,19 +150,19 @@ class rBaggReg:  # Robust Bagging Regressor
                     mu*d_tag
                 return grad.mean(1)
 
-            def cost_rgem_mae(alpha, noise_cov, err):
-                mu = alpha.dot(err)
+            def cost_rgem_mae(alpha, noise_cov, base_prediction, y):
+                mu = alpha.dot(base_prediction) - y
                 sigma = np.sqrt(alpha.dot(noise_cov.dot(alpha.T)))
 
                 cost = np.sqrt(2/np.pi)*sigma*np.exp(-0.5 * (mu/sigma)**2) +  \
                     mu * (1 - 2*sp.stats.norm.cdf(-mu/sigma))
                 return cost.mean(1)
 
-            grad_fun = lambda weights: grad_rgem_mae(weights, self.noise_covariance, err)
-            cost_fun = lambda weights: cost_rgem_mae(weights, self.noise_covariance, err)
+            grad_fun = lambda weights: grad_rgem_mae(weights, self.noise_covariance, base_prediction, y)
+            cost_fun = lambda weights: cost_rgem_mae(weights, self.noise_covariance, base_prediction, y)
             cost_evolution, weights_evolution, stop_iter = auxfun.gradient_descent(weights_init, grad_fun, cost_fun,
-                                                                               max_iter=1000, min_iter=100,
-                                                                               tol=1e-12, learn_rate=0.05, decay_rate=0.2)
+                                                                               max_iter=5000, min_iter=100,
+                                                                               tol=1e-6, learn_rate=0.01, decay_rate=0.2)
             self.weights = weights_evolution[np.argmin(cost_evolution[0:stop_iter])]
 
         else:
