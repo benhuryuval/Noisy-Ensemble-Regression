@@ -25,29 +25,29 @@ import RobustIntegration.auxilliaryFunctions as aux
 # Constants
 rng = np.random.RandomState(42)
 plot_flag = True
-save_results_to_file_flag = False
+save_results_to_file_flag = True
 results_path = "Results//"
 
 data_type_vec = ["sin"]  # kc_house_data / diabetes / white-wine / sin / exp / make_reg
 # data_type_vec = ["kc_house_data", "diabetes", "white-wine", "sin", "exp", "make_reg"]
 test_size = 0.5  # test data fraction
-KFold_n_splits = 2  # Number of k-fold x-validation dataset splits
+KFold_n_splits = 5  # Number of k-fold x-validation dataset splits
 
-ensemble_size = [16] # Number of weak-learners
+ensemble_size = [16, 64] # Number of weak-learners
 tree_max_depth = 6  # Maximal depth of decision tree
 learning_rate = 0.1  # learning rate of gradient boosting
 min_sample_leaf = 10
 
 snr_db_vec = np.linspace(-30, 20, 6)  # [-10]
 n_repeat = 500  # Number of iterations for estimating expected performance
-sigma_profile_type = "uniform"  # uniform / linear / noiseless_fraction / noiseless_even (for GradBoost)
+sigma_profile_type = "noiseless_fraction"  # uniform / linear / noiseless_fraction / noiseless_even (for GradBoost)
 noisless_fraction = 0.5
 noisless_scale = 1/100
 
 n_samples = 500  # Size of the (synthetic) dataset  in case of synthetic dataset
 train_noise = 0.1  # Standard deviation of the measurement / training noise in case of synthetic dataset
 
-criterion = "mae"  # "mse" / "mae"
+criterion = "mse"  # "mse" / "mae"
 reg_algo = "Bagging"  # "GradBoost" / "Bagging"
 bagging_method = "gem"  # "bem" / "gem" / "lr"
 gradboost_robust_flag = True
@@ -209,7 +209,7 @@ if reg_algo == "GradBoost":
                                                         'GradBoost, Non-Robust': pd.Series(np.log10(err_nr[:, _m_idx, :].mean(1))),
                                                         'GradBoost, Robust': pd.Series(np.log10(err_r[:, _m_idx, :].mean(1)))},
                                                        axis=1)
-                                results_df.to_csv(results_path + data_type + "_" + _m.__str__() + "_gbr_lae.csv")
+                                results_df.to_csv(results_path + data_type + "_gbr_" + _m.__str__() + "_" + criterion + sigma_profile_type + ".csv")
                         print("---------------------------------------------------------------------------\n")
 
                 # Plot error and error gain
@@ -373,7 +373,7 @@ if reg_algo == "Bagging":
                                                         'Bagging, Non-Robust': pd.Series(10*np.log10(err_nr[:, _m_idx, :].mean(1))),
                                                         'Bagging, Robust': pd.Series(10*np.log10(err_r[:, _m_idx, :].mean(1)))},
                                                        axis=1)
-                                results_df.to_csv(results_path + data_type + "_" + _m.__str__() + "_gbr_" + criterion + ".csv")
+                                results_df.to_csv(results_path + data_type + "_bagging_" + _m.__str__() + "_" + criterion + sigma_profile_type + ".csv")
 
                         if plot_flag:
                                 # Plot error results
