@@ -10,12 +10,12 @@ rng = np.random.RandomState(42)
 def f(data_type='sin', n_samples=100, X=None):
         if data_type == 'sin':
                 if X == None:
-                        X = np.linspace(0, 6, n_samples)[:, np.newaxis]
-                f = np.sin(X).ravel() + np.sin(6 * X).ravel() + rng.normal(0, 0.1, X.shape[0])
+                    X = np.linspace(0, 6, n_samples)[:, np.newaxis]
+                f = np.sin(X).ravel() + np.sin(6 * X).ravel()# + rng.normal(0, 0.1, X.shape[0])
         elif data_type == 'exp':
                 if X == None:
-                        X = np.linspace(0, 6, n_samples)[:, np.newaxis]
-                f = np.exp(-(X ** 2)).ravel() + 1.5 * np.exp(-((X - 2) ** 2)).ravel() + rng.normal(0, 0.1, X.shape[0])
+                    X = np.linspace(0, 6, n_samples)[:, np.newaxis]
+                f = np.exp(-(X ** 2)).ravel() + 1.5 * np.exp(-((X - 2) ** 2)).ravel()# + rng.normal(0, 0.1, X.shape[0])
         return X, f
 
 def generate(data_type=None, n_samples=100, noise=0.1, n_repeat=1):
@@ -28,6 +28,7 @@ def generate(data_type=None, n_samples=100, noise=0.1, n_repeat=1):
 
 def get_dataset(data_type=None, n_samples=100, noise=0.1):
         datasets_path = "..//Datasets//"
+        datasets_path = "C://Users//Yuval//Google Drive//PhD//RegressionPaper//Code//Noisy-Ensemble-Regression//Datasets//"
         if data_type == 'kc_house_data':
                 dataset_link = datasets_path + "kc_house_data.csv"
                 dataset_df = pd.read_csv(dataset_link)

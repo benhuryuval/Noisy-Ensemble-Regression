@@ -104,22 +104,27 @@ class rBaggReg:  # Robust Bagging Regressor
             self.weights = np.ones([self.n_base_estimators,]) / self.n_base_estimators
 
         elif self.integration_type == 'gem':
+            # Getting the weak learner predictions
             base_prediction = np.zeros([self.n_base_estimators, len(y)])
             for k, base_estimator in enumerate(self.bagging_regressor.estimators_):
                 base_prediction[k, :] = base_estimator.predict(X)
-            error_covariance = np.cov(base_prediction - y)  # cov[\hat{f}-y]
 
-            if auxfun.is_psd_mat(error_covariance):
-                ones_mat = np.ones([self.n_base_estimators, self.n_base_estimators])
-                w, v = sp.linalg.eig(error_covariance, ones_mat)  # eigenvectors of cov[\hat{f}-y]
-                min_w = np.min(np.abs(w.real))
-                min_w_idxs = [index for index, element in enumerate(w) if min_w == element]
-                v_min = v[:, min_w_idxs].mean(axis=1)
-                self.weights = v_min.T / v_min.sum()
-            else:
-                print("Error: Invalid covariance matrix.")
-                self.weights = None
+            # Setting the weak learner weight via gradient-descent optimization
+            weights_init = np.array([np.ones([self.n_base_estimators, ])])/self.n_base_estimators
+            def grad_rgem_mae(alpha, base_prediction, y):
+                grad = alpha.T * np.sign(alpha.dot(base_prediction) - y)
+                return grad.mean(1)
 
+            def cost_rgem_mae(alpha, base_prediction, y):
+                cost = np.abs(alpha.dot(base_prediction) - y)
+                return cost.mean(1)
+
+            grad_fun = lambda weights: grad_rgem_mae(weights, base_prediction, y)
+            cost_fun = lambda weights: cost_rgem_mae(weights, base_prediction, y)
+            cost_evolution, weights_evolution, stop_iter = auxfun.gradient_descent(weights_init, grad_fun, cost_fun,
+                                                                               max_iter=5000, min_iter=100,
+                                                                               tol=1e-6, learn_rate=0.01, decay_rate=0.2)
+            self.weights = weights_evolution[np.argmin(cost_evolution[0:stop_iter])]
         elif self.integration_type == 'robust-bem':
             w, v = sp.linalg.eig(self.noise_covariance)
             min_w = np.min(w.real)

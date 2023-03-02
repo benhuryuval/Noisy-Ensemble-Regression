@@ -13,10 +13,10 @@ import auxilliaryFunctions as aux
 rng = np.random.RandomState(42)
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-plot_flag = False
+plot_flag = True
 results_path = "Results//"
 # data_type = 'white-wine'  # kc_house_data / diabetes / white-wine / sin / exp / make_reg
-data_type_vec = ["kc_house_data", "diabetes", "white-wine", "sin", "exp", "make_reg"]
+data_type_vec = ["sin"]#, "exp", "make_reg", "kc_house_data", "diabetes", "white-wine"]
 # / carbon_nanotubes (cant use, 3dim target y)
 
 n_samples = 1000

@@ -29,25 +29,25 @@ save_results_to_file_flag = True
 results_path = "Results//"
 
 data_type_vec = ["sin"]  # kc_house_data / diabetes / white-wine / sin / exp / make_reg
-# data_type_vec = ["kc_house_data", "diabetes", "white-wine", "sin", "exp", "make_reg"]
+# data_type_vec = ["sin", "exp", "make_reg", "diabetes", "white-wine", "kc_house_data"]
 test_size = 0.5  # test data fraction
 KFold_n_splits = 5  # Number of k-fold x-validation dataset splits
 
-ensemble_size = [16, 64] # Number of weak-learners
+ensemble_size = [8] # [16, 64] # [5] # Number of weak-learners
 tree_max_depth = 6  # Maximal depth of decision tree
 learning_rate = 0.1  # learning rate of gradient boosting
 min_sample_leaf = 10
 
-snr_db_vec = np.linspace(-30, 20, 6)  # [-10]
-n_repeat = 500  # Number of iterations for estimating expected performance
+snr_db_vec = np.linspace(-40, 10, 6)  # [-6]
+n_repeat = 25 #25  # Number of iterations for estimating expected performance
 sigma_profile_type = "noiseless_fraction"  # uniform / linear / noiseless_fraction / noiseless_even (for GradBoost)
 noisless_fraction = 0.5
 noisless_scale = 1/100
 
 n_samples = 500  # Size of the (synthetic) dataset  in case of synthetic dataset
-train_noise = 0.1  # Standard deviation of the measurement / training noise in case of synthetic dataset
+train_noise = 0.01  # Standard deviation of the measurement / training noise in case of synthetic dataset
 
-criterion = "mse"  # "mse" / "mae"
+criterion = "mae"  # "mse" / "mae"
 reg_algo = "Bagging"  # "GradBoost" / "Bagging"
 bagging_method = "gem"  # "bem" / "gem" / "lr"
 gradboost_robust_flag = True
@@ -209,7 +209,7 @@ if reg_algo == "GradBoost":
                                                         'GradBoost, Non-Robust': pd.Series(np.log10(err_nr[:, _m_idx, :].mean(1))),
                                                         'GradBoost, Robust': pd.Series(np.log10(err_r[:, _m_idx, :].mean(1)))},
                                                        axis=1)
-                                results_df.to_csv(results_path + data_type + "_gbr_" + _m.__str__() + "_" + criterion + sigma_profile_type + ".csv")
+                                results_df.to_csv(results_path + data_type + "_gbr_" + _m.__str__() + "_" + criterion + "_" + sigma_profile_type + ".csv")
                         print("---------------------------------------------------------------------------\n")
 
                 # Plot error and error gain
@@ -244,7 +244,7 @@ if reg_algo == "Bagging":
                 perm = np.random.permutation(len(X))
                 X, y = X.to_numpy()[perm], y.to_numpy()[perm]
                 if (len(X.shape) == 1) or (X.shape[1] == 1):
-                        X = X.reshape(-1, 1)
+                    X = X.reshape(-1, 1)
                 y = y.reshape(-1, 1)
 
                 kf = KFold(n_splits=KFold_n_splits, random_state=None, shuffle=False)
@@ -255,25 +255,20 @@ if reg_algo == "Bagging":
                         err_cln = np.zeros((len(snr_db_vec), len(ensemble_size), KFold_n_splits))
                         err_nr, err_r = np.zeros_like(err_cln), np.zeros_like(err_cln)
 
-                        kfold_idx = 0
+                        kfold_idx = -1
                         for train_index, test_index in kf.split(X):
                                 print("\nTRAIN:", train_index, "\nTEST:", test_index)
                                 X_train, X_test = X[train_index], X[test_index]
                                 y_train, y_test = y[train_index], y[test_index]
-
-                                # Plotting all the points
-                                # if X_train.shape[1] == 1 and plot_flag:
-                                #     plt.figure(figsize=(12, 8))
-                                #     plt.plot(X_train[:, 0], y_train[:, 0], 'ok', label='Train')
-                                #     plt.plot(X_test[:, 0], y_test[:, 0], 'xk', label='Test')
+                                kfold_idx += 1
 
                                 # - - - CLEAN BAGGING - - -
                                 # Initiating the tree
-                                if criterion=="mse":
+                                if criterion == "mse":
                                         cln_reg = sklearn.ensemble.BaggingRegressor(
                                                 sk.tree.DecisionTreeRegressor(max_depth=tree_max_depth),
                                                 n_estimators=_m, random_state=rng)
-                                elif criterion=="mae":
+                                elif criterion == "mae":
                                         cln_reg = sklearn.ensemble.BaggingRegressor(
                                                 sk.tree.DecisionTreeRegressor(max_depth=tree_max_depth,
                                                                               criterion="absolute_error"),
@@ -323,6 +318,43 @@ if reg_algo == "Bagging":
                                                 noisy_rreg.fit_mae(X_train, y_train[:, 0])
                                         # - - - - - - - - - - - - - - - - -
 
+                                        # Plotting all the points
+                                        if X_train.shape[1] == 1 and plot_flag and False:
+                                            # with plt.style.context(['science', 'grid']):
+                                            n_repeat_plt = 25
+                                            fontsize = 18
+                                            fig, axe = plt.subplots(figsize=(8.4, 8.4))
+                                            plt.rcParams.update({'font.size': fontsize})
+                                            y_pred = np.zeros([X_test.shape[0], n_repeat_plt])
+                                            sort_idxs_test = np.argsort(X_test[:, 0])
+                                            sort_idxs_train = np.argsort(X_train[:, 0])
+                                            for _n in range(0, n_repeat_plt):
+                                                y_pred[:, _n] = noisy_reg.predict(X_test[sort_idxs_test])
+                                            X_test_ravel = np.repeat(X_test[sort_idxs_test, 0], n_repeat_plt)
+                                            plt.plot(X_test_ravel, y_pred.ravel(), linestyle='', marker='x', color='r', label='Test: Noisy prediction', markersize=6.0, alpha=0.25)
+                                            plt.plot(X_train[sort_idxs_train, 0], y_train[sort_idxs_train, 0], linestyle='-', label='Train', linewidth=8.0)
+                                            plt.plot(X_test[sort_idxs_test,0], y_test[sort_idxs_test, 0], linestyle='-', color='k', label='Test: Ground truth', linewidth=2.0)
+                                            plt.plot(X_test[sort_idxs_test,0], pred_cln[sort_idxs_test], linestyle='', marker='o', color='k', label='Test: Noiseless prediction', linewidth=2.0, markersize=6.0)
+                                            plt.xlabel('x')
+                                            plt.ylabel('y')
+                                            plt.title('Regression with ensemble of $T='+str(_m)+'$: \n$'+str(round(100*(1-noisless_fraction)))+'$% noisy sub-regressors at $SNR='+str(snr_db)+'$[dB]')
+                                            handles, labels = plt.gca().get_legend_handles_labels()
+                                            order = [1, 2, 3, 0]
+                                            plt.legend([handles[idx] for idx in order], [labels[idx] for idx in order], loc='upper right')
+                                            plt.grid()
+                                            mse_cln, mae_cln = aux.calc_error(y_test[sort_idxs_test, 0], pred_cln[sort_idxs_test], 'mse'), aux.calc_error(y_test[sort_idxs_test, 0], pred_cln[sort_idxs_test], 'mae')
+                                            y_test_ravel = np.repeat(y_test[sort_idxs_test, 0], n_repeat_plt)
+                                            mse_pred, mae_pred = aux.calc_error(y_test_ravel, y_pred.ravel(), 'mse'), aux.calc_error(y_test_ravel, y_pred.ravel(), 'mae')
+                                            if data_type=="sin":
+                                                yloc = -2.0
+                                            elif data_type=="exp":
+                                                yloc = -0.5
+                                            plt.text(0, yloc, "MSE (Noiseless): "+"{0:.1f}".format(10*np.log10(mse_cln))+"[dB]" + "\nMSE (Noisy): "+"{0:.1f}".format(10*np.log10(mse_pred))+"[dB]\n"\
+                                                            +"MAE (Noiseless): "+"{0:.1f}".format(10*np.log10(mae_cln))+"[dB]" + "\nMAE (Noisy): "+"{0:.1f}".format(10*np.log10(mae_pred))+"[dB]",
+                                                     fontsize=fontsize,
+                                                     bbox=dict(facecolor='green', alpha=0.1))
+                                            plt.show(block=False)
+
                                         # Predicting with noise
                                         pred_nr, pred_r = np.zeros(len(y_test)), np.zeros(len(y_test))
                                         for _n in range(0, n_repeat):
@@ -346,7 +378,7 @@ if reg_algo == "Bagging":
                                               )
 
                                         # Sample presentation of data
-                                        if X_train.shape[1] == 1 and plot_flag:
+                                        if X_train.shape[1] == 1 and plot_flag and False:
                                                 fig_dataset = plt.figure(figsize=(12, 8))
                                                 plt.plot(X_train[:, 0], y_train, 'x', label="Train")
                                                 plt.plot(X_test[:, 0], pred_cln, 'o',
@@ -365,15 +397,13 @@ if reg_algo == "Bagging":
                                                 plt.show(block=False)
                                                 plt.close(fig_dataset)
 
-                                kfold_idx += 1
-
                         if save_results_to_file_flag:
                                 results_df = pd.concat({'SNR': pd.Series(snr_db_vec),
                                                         'Bagging, Noiseless': pd.Series(10*np.log10(err_cln[:, _m_idx, :].mean(1))),
                                                         'Bagging, Non-Robust': pd.Series(10*np.log10(err_nr[:, _m_idx, :].mean(1))),
                                                         'Bagging, Robust': pd.Series(10*np.log10(err_r[:, _m_idx, :].mean(1)))},
                                                        axis=1)
-                                results_df.to_csv(results_path + data_type + "_bagging_" + _m.__str__() + "_" + criterion + sigma_profile_type + ".csv")
+                                results_df.to_csv(results_path + data_type + "_bagging_" + _m.__str__() + "_" + criterion + "_" + sigma_profile_type + ".csv")
 
                         if plot_flag:
                                 # Plot error results

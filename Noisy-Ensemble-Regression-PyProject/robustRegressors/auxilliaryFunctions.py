@@ -146,7 +146,7 @@ def gradient_descent(gamma_init, grad_fun, cost_fun, max_iter=30000, min_iter=10
             gamma_evolution[i + 1] = gamma_evolution[i] + step
     # - - - - - - - - - - - - - - - - - - - - - - - - - -
     # LAE plotting for visualization and debug
-    if True:
+    if False:
         import matplotlib.pyplot as plt
         fig_cost = plt.figure(figsize=(12, 8))
         plt.plot(range(0, i), cost_evolution[0:i], '.', label="Cost")
