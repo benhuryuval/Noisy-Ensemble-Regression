@@ -28,20 +28,19 @@ plot_flag = True
 save_results_to_file_flag = True
 results_path = "Results//"
 
-data_type_vec = ["sin"]  # kc_house_data / diabetes / white-wine / sin / exp / make_reg
-# data_type_vec = ["sin", "exp", "make_reg", "diabetes", "white-wine", "kc_house_data"]
-test_size = 0.5  # test data fraction
+# data_type_vec = ["kc_house_data"]  # kc_house_data / diabetes / white-wine / sin / exp / make_reg
+data_type_vec = ["sin", "exp", "make_reg", "diabetes", "white-wine", "kc_house_data"]
 KFold_n_splits = 5  # Number of k-fold x-validation dataset splits
 
-ensemble_size = [8] # [16, 64] # [5] # Number of weak-learners
-tree_max_depth = 6  # Maximal depth of decision tree
+ensemble_size = [16] # [16, 64] # [5] # Number of weak-learners
+tree_max_depth = 1  # Maximal depth of decision tree
 learning_rate = 0.1  # learning rate of gradient boosting
 min_sample_leaf = 10
 
-snr_db_vec = np.linspace(-40, 10, 6)  # [-6]
-n_repeat = 25 #25  # Number of iterations for estimating expected performance
+snr_db_vec = np.linspace(-40, 20, 7)  # [-6]
+n_repeat = 25  # Number of iterations for estimating expected performance
 sigma_profile_type = "noiseless_fraction"  # uniform / linear / noiseless_fraction / noiseless_even (for GradBoost)
-noisless_fraction = 0.5
+noisless_fraction = 0.25
 noisless_scale = 1/100
 
 n_samples = 500  # Size of the (synthetic) dataset  in case of synthetic dataset
@@ -54,7 +53,7 @@ gradboost_robust_flag = True
 
 # Verify inputs
 if reg_algo == "Bagging" and bagging_method == "lr":
-        ValueError('Invalid bagging_method.')
+        raise ValueError('Invalid bagging_method.')
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -403,7 +402,7 @@ if reg_algo == "Bagging":
                                                         'Bagging, Non-Robust': pd.Series(10*np.log10(err_nr[:, _m_idx, :].mean(1))),
                                                         'Bagging, Robust': pd.Series(10*np.log10(err_r[:, _m_idx, :].mean(1)))},
                                                        axis=1)
-                                results_df.to_csv(results_path + data_type + "_bagging_" + _m.__str__() + "_" + criterion + "_" + sigma_profile_type + ".csv")
+                                results_df.to_csv(results_path + data_type + "_bagging_" + bagging_method + "_" + _m.__str__() + "_" + criterion + "_" + sigma_profile_type + ".csv")
 
                         if plot_flag:
                                 # Plot error results

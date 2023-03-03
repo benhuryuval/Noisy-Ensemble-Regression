@@ -38,17 +38,18 @@ class rBaggReg:  # Robust Bagging Regressor
             for k, base_estimator in enumerate(self.bagging_regressor.estimators_):
                 base_prediction[k, :] = base_estimator.predict(X)
             error_covariance = np.cov(base_prediction - y)  # cov[\hat{f}-y]
+            err_mat_rglrz = np.real_if_close(error_covariance, tol=1e-1) + 1e-2 * np.diag(np.ones(self.n_base_estimators, ))
 
-            if auxfun.is_psd_mat(error_covariance):
+            if auxfun.is_psd_mat(err_mat_rglrz):
                 ones_mat = np.ones([self.n_base_estimators, self.n_base_estimators])
-                w, v = sp.linalg.eig(error_covariance, ones_mat)  # eigenvectors of cov[\hat{f}-y]
+                w, v = sp.linalg.eig(err_mat_rglrz, ones_mat)  # eigenvectors of cov[\hat{f}-y]
                 min_w = np.min(np.abs(w.real))
                 min_w_idxs = [index for index, element in enumerate(w) if min_w == element]
                 v_min = v[:, min_w_idxs].mean(axis=1)
                 self.weights = v_min.T / v_min.sum()
             else:
                 print("Error: Invalid covariance matrix.")
-                ValueError('Invalid covariance matrix')
+                raise ValueError('Invalid covariance matrix')
                 self.weights = None
 
         elif self.integration_type == 'lr':
@@ -69,16 +70,17 @@ class rBaggReg:  # Robust Bagging Regressor
                 base_prediction[k, :] = base_estimator.predict(X)
             error_covariance = np.cov(base_prediction - y)  # cov[\hat{f}-y]
             c_mat = error_covariance + self.noise_covariance
-            if auxfun.is_psd_mat(error_covariance):
+            c_mat_rglrz = np.real_if_close(c_mat, tol=1e-1) + 1e-2 * np.diag(np.ones(self.n_base_estimators, ))
+            if auxfun.is_psd_mat(c_mat_rglrz):
                 ones_mat = np.ones([self.n_base_estimators, self.n_base_estimators])
-                w, v = sp.linalg.eig(c_mat, ones_mat)
+                w, v = sp.linalg.eig(c_mat_rglrz, ones_mat)
                 min_w = np.min(w.real)
                 min_w_idxs = [index for index, element in enumerate(w) if min_w == element]
                 v_min = v[:, min_w_idxs].mean(axis=1)
                 self.weights = v_min.T / v_min.sum()
             else:
                 print('Invalid covariance matrix.')
-                ValueError('Invalid covariance matrix')
+                raise ValueError('Invalid covariance matrix')
                 self.weights = None
 
         elif self.integration_type == 'robust-lr':
@@ -89,7 +91,7 @@ class rBaggReg:  # Robust Bagging Regressor
 
         else:
             print('Invalid integration type.')
-            ValueError('Invalid integration type.')
+            raise ValueError('Invalid integration type.')
             self.weights = None
 
         return self
@@ -172,7 +174,7 @@ class rBaggReg:  # Robust Bagging Regressor
 
         else:
             print('Invalid integration type.')
-            ValueError('Invalid integration type.')
+            raise ValueError('Invalid integration type.')
             self.weights = None
 
         return self
