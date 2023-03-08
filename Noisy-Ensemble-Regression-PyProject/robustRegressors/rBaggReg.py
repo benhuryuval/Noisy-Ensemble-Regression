@@ -14,7 +14,7 @@ class rBaggReg:  # Robust Bagging Regressor
     # The supported error criteria are: MSE (l2) and MAE (l1).
 
 
-    def __init__(self, bagging_regressor, noise_covariance=None, n_base_estimators=1, integration_type='bem'):
+    def __init__(self, bagging_regressor, noise_covariance=None, n_base_estimators=1, integration_type='bem', gd_tol=1e-6, learn_rate= 1e-6, decay_rate=0.0):
         self.bagging_regressor = bagging_regressor
         if noise_covariance is None:
             self.noise_covariance = np.eye(n_base_estimators)
@@ -23,6 +23,8 @@ class rBaggReg:  # Robust Bagging Regressor
         self.weights = np.ones([n_base_estimators,]) / n_base_estimators
         self.n_base_estimators = n_base_estimators
         self.integration_type = integration_type
+        # gradient=descent params
+        self.gd_tol, self.learn_rate, self.decay_rate = gd_tol, learn_rate, decay_rate
 
     def fit_mse(self, X, y):
 
@@ -113,20 +115,31 @@ class rBaggReg:  # Robust Bagging Regressor
 
             # Setting the weak learner weight via gradient-descent optimization
             weights_init = np.array([np.ones([self.n_base_estimators, ])])/self.n_base_estimators
-            def grad_rgem_mae(alpha, base_prediction, y):
+            def grad_gem_mae(alpha, base_prediction, y):
                 grad = alpha.T * np.sign(alpha.dot(base_prediction) - y)
                 return grad.mean(1)
 
-            def cost_rgem_mae(alpha, base_prediction, y):
+            def cost_gem_mae(alpha, base_prediction, y):
                 cost = np.abs(alpha.dot(base_prediction) - y)
                 return cost.mean(1)
 
-            grad_fun = lambda weights: grad_rgem_mae(weights, base_prediction, y)
-            cost_fun = lambda weights: cost_rgem_mae(weights, base_prediction, y)
+            grad_fun = lambda weights: grad_gem_mae(weights, base_prediction, y)
+            cost_fun = lambda weights: cost_gem_mae(weights, base_prediction, y)
             cost_evolution, weights_evolution, stop_iter = auxfun.gradient_descent(weights_init, grad_fun, cost_fun,
-                                                                               max_iter=5000, min_iter=100,
-                                                                               tol=1e-6, learn_rate=0.01, decay_rate=0.2)
+                                                                               max_iter=5000, min_iter=500,
+                                                                               tol=self.gd_tol, learn_rate=self.learn_rate, decay_rate=self.decay_rate)
             self.weights = weights_evolution[np.argmin(cost_evolution[0:stop_iter])]
+
+            # # DEBUG # #
+            if False:
+                import matplotlib.pyplot as plt
+                fig, ax = plt.figure("Cost evolution", figsize=(8, 6), dpi=300), plt.axes()
+                plt.plot(cost_evolution[0:stop_iter])
+                plt.xlabel('Iteration', fontsize=18)
+                plt.ylabel("Cost", fontsize=18)
+                plt.show(block=False)
+            # # DEBUG END # #
+
         elif self.integration_type == 'robust-bem':
             w, v = sp.linalg.eig(self.noise_covariance)
             min_w = np.min(w.real)
@@ -168,9 +181,19 @@ class rBaggReg:  # Robust Bagging Regressor
             grad_fun = lambda weights: grad_rgem_mae(weights, self.noise_covariance, base_prediction, y)
             cost_fun = lambda weights: cost_rgem_mae(weights, self.noise_covariance, base_prediction, y)
             cost_evolution, weights_evolution, stop_iter = auxfun.gradient_descent(weights_init, grad_fun, cost_fun,
-                                                                               max_iter=5000, min_iter=100,
-                                                                               tol=1e-6, learn_rate=0.01, decay_rate=0.2)
+                                                                               max_iter=5000, min_iter=500,
+                                                                               tol=self.gd_tol, learn_rate=self.learn_rate, decay_rate=self.decay_rate)
             self.weights = weights_evolution[np.argmin(cost_evolution[0:stop_iter])]
+
+            # # DEBUG # #
+            if False:
+                import matplotlib.pyplot as plt
+                fig, ax = plt.figure("Cost evolution", figsize=(8, 6), dpi=300), plt.axes()
+                plt.plot(cost_evolution[0:stop_iter])
+                plt.xlabel('Iteration', fontsize=18)
+                plt.ylabel("Cost", fontsize=18)
+                plt.show(block=False)
+            # # DEBUG END # #
 
         else:
             print('Invalid integration type.')

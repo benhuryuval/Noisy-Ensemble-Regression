@@ -141,7 +141,7 @@ def gradient_descent(gamma_init, grad_fun, cost_fun, max_iter=30000, min_iter=10
             Gt = np.sum(np.concatenate(gamma_evolution[0:i+1]) ** 2, axis=0)
             learn_rate_upd = np.divide(learn_rate*np.eye(vec_siz), np.sqrt(Gt + eps))
             step = decay_rate * step - learn_rate_upd.dot(grad)
-            # step = -learn_rate*grad
+            # step = -learn_rate*grad  # "vanilla" gd step
 
             gamma_evolution[i + 1] = gamma_evolution[i] + step
     # - - - - - - - - - - - - - - - - - - - - - - - - - -

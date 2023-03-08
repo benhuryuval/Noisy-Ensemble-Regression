@@ -29,16 +29,15 @@ save_results_to_file_flag = True
 results_path = "Results//"
 
 # data_type_vec = ["kc_house_data"]  # kc_house_data / diabetes / white-wine / sin / exp / make_reg
-data_type_vec = ["sin", "exp", "make_reg", "diabetes", "white-wine", "kc_house_data"]
+data_type_vec = ["sin", "exp", "make_reg", "diabetes", "white-wine"]#, "kc_house_data"]
 KFold_n_splits = 5  # Number of k-fold x-validation dataset splits
 
 ensemble_size = [16] # [16, 64] # [5] # Number of weak-learners
 tree_max_depth = 1  # Maximal depth of decision tree
-learning_rate = 0.1  # learning rate of gradient boosting
 min_sample_leaf = 10
 
 snr_db_vec = np.linspace(-40, 20, 7)  # [-6]
-n_repeat = 25  # Number of iterations for estimating expected performance
+n_repeat = 10  # Number of iterations for estimating expected performance
 sigma_profile_type = "noiseless_fraction"  # uniform / linear / noiseless_fraction / noiseless_even (for GradBoost)
 noisless_fraction = 0.25
 noisless_scale = 1/100
@@ -46,10 +45,22 @@ noisless_scale = 1/100
 n_samples = 500  # Size of the (synthetic) dataset  in case of synthetic dataset
 train_noise = 0.01  # Standard deviation of the measurement / training noise in case of synthetic dataset
 
-criterion = "mae"  # "mse" / "mae"
+criterion = "mse"  # "mse" / "mae"
 reg_algo = "Bagging"  # "GradBoost" / "Bagging"
 bagging_method = "gem"  # "bem" / "gem" / "lr"
 gradboost_robust_flag = True
+
+# Gradient-descent params
+gd_learn_rate_dict = {
+    "sin": 1e-2,
+    "exp": 1e-2,
+    "make_reg": 1e-6,
+    "diabetes": 1e-4,
+    "white-wine": 1e-4,
+    "kc_house_data": 1e-6
+}
+gd_tol = 1e-2
+gd_decay_rate = 0.0
 
 # Verify inputs
 if reg_algo == "Bagging" and bagging_method == "lr":
@@ -99,7 +110,6 @@ if reg_algo == "GradBoost":
                                                         TrainNoiseCov=np.zeros([_m + 1, _m + 1]),
                                                         RobustFlag = gradboost_robust_flag,
                                                         criterion=criterion)
-
 
                                 # Fitting on training data
                                 rgb_cln.fit(X_train, y_train, m=_m)
@@ -256,7 +266,7 @@ if reg_algo == "Bagging":
 
                         kfold_idx = -1
                         for train_index, test_index in kf.split(X):
-                                print("\nTRAIN:", train_index, "\nTEST:", test_index)
+                                print("\nTRAIN:", train_index[0], " to ", train_index[-1], "\nTEST:", test_index[0], " to ", test_index[-1])
                                 X_train, X_test = X[train_index], X[test_index]
                                 y_train, y_test = y[train_index], y[test_index]
                                 kfold_idx += 1
@@ -305,8 +315,8 @@ if reg_algo == "Bagging":
                                                 noise_covariance = np.diag(sigma_profile)
 
                                         # - - - NON-ROBUST / ROBUST GRADIENT BOOSTING - - -
-                                        noisy_reg = rBaggReg(cln_reg, noise_covariance, _m, bagging_method)
-                                        noisy_rreg = rBaggReg(cln_reg, noise_covariance, _m, "robust-"+bagging_method)
+                                        noisy_reg = rBaggReg(cln_reg, noise_covariance, _m, bagging_method, gd_tol, gd_learn_rate_dict[data_type], gd_decay_rate)
+                                        noisy_rreg = rBaggReg(cln_reg, noise_covariance, _m, "robust-"+bagging_method, gd_tol, gd_learn_rate_dict[data_type], gd_decay_rate)
 
                                         # Fitting on training data with noise: non-robust and robust
                                         if criterion == "mse":
