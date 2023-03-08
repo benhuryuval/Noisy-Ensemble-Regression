@@ -22,7 +22,8 @@ class rGradBoost:
         min_sample_leaf: int = 2,
         TrainNoiseCov: float = 0,
         RobustFlag: bool = False,
-        criterion: str = "mse"
+        criterion: str = "mse",
+        gd_tol=1e-6, gd_learn_rate=1e-6, gd_decay_rate=0.0
     ):
 
         # Saving the train dataset
@@ -33,6 +34,7 @@ class rGradBoost:
         self.min_sample_leaf = min_sample_leaf
 
         # Saving the learning rate and coefficients (weights)
+        self.gd_tol, self.gd_learn_rate, self.gd_decay_rate = gd_tol, gd_learn_rate, gd_decay_rate
         self.gamma = []  # np.array([1])
 
         # Saving the noise covariance matrix
@@ -116,10 +118,7 @@ class rGradBoost:
                 min_samples_leaf=self.min_sample_leaf,
                 criterion=self.weak_lrnr_criterion
             )
-            if self.criterion == "mse":
-                _weak_learner.fit(X, self._residuals)
-            elif self.criterion == "mae":
-                _weak_learner.fit(X, self._residuals)
+            _weak_learner.fit(X, self._residuals)
             self.weak_learners.append(_weak_learner)  # Appending the weak learner to the list
 
             # Getting the weak learner predictions
@@ -149,8 +148,8 @@ class rGradBoost:
                         gs = np.abs(gamma) * np.abs(sigma)
                         a = np.sqrt(2 / np.pi) * gs
                         b = np.exp(-0.5 * mu ** 2 / gs ** 2)
-                        d = 1 - 2 * sp.stats.norm.cdf(-mu / gs)
                         c = mu
+                        d = 1 - 2 * sp.stats.norm.cdf(-mu / gs)
                     return a, b, c, d
                 def grad_gb_mae(_predictions_wl, _residuals, gamma, sigma):
                     """ This function calculates the gradient of the cost function w.r.t. gamma_t"""
@@ -162,10 +161,10 @@ class rGradBoost:
                     else:
                         gs = np.abs(gamma) * np.abs(sigma)
                         a_tag = np.sqrt(2 / np.pi) * sigma * np.sign(gamma)
-                        c_tag = phi
                         b_tag = -mu * (phi * gamma - mu) / (gamma ** 3 * sigma ** 2) * np.exp(-0.5 * (mu / gs) ** 2)
-                        d_tag = 2 * sp.stats.norm.pdf(-0.5 * mu / gs ** 2) * (phi * gs - np.sign(gamma) * sigma * mu) / (
-                                    gs ** 2)
+                        c_tag = phi
+                        d_tag = 2 * sp.stats.norm.pdf(-0.5 * mu / gs) * (np.abs(gamma)*phi - np.sign(gamma)*mu) / (
+                                    gamma ** 2 * sigma)
                         grad = np.mean(a_tag * b + b_tag * a + c_tag * d + d_tag * c, axis=0, keepdims=True)
                     return grad
                 def cost_gb_mae(_predictions_wl, _residuals, gamma, sigma):
@@ -174,9 +173,23 @@ class rGradBoost:
                 grad_fun = lambda gamma: grad_gb_mae(self._predictions_wl, self._residuals, gamma, sigma*self.RobustFlag)
                 cost_fun = lambda gamma: cost_gb_mae(self._predictions_wl, self._residuals, gamma, sigma*self.RobustFlag)
                 cost_evolution, gamma_evolution, stop_iter = auxfun.gradient_descent_scalar(gamma_init, grad_fun, cost_fun,
-                                                                                   max_iter=1000, min_iter=100,
-                                                                                   tol=1e-12, learn_rate=0.3, decay_rate=0.2)
+                                                                                    max_iter=500, min_iter=100,
+                                                                                    tol=self.gd_tol, learn_rate=self.gd_learn_rate, decay_rate=self.gd_decay_rate)
                 new_gamma = gamma_evolution[np.argmin(cost_evolution[0:stop_iter])]
+
+                # # DEBUG # #
+                if False and sigma != 0:
+                    import matplotlib.pyplot as plt
+                    fig, ax = plt.figure("Cost evolution", figsize=(8, 6), dpi=300), plt.axes()
+                    plt.plot(cost_evolution[0:stop_iter])
+                    plt.xlabel('Iteration', fontsize=18)
+                    plt.ylabel("Cost", fontsize=18)
+                    plt.show(block=False)
+                    bb=0
+
+                if new_gamma<=0:
+                    bb=0
+                # # DEBUG END # #
 
             # - - - - - - - - - - - - -
             # LAE DEBUG PLOTS
@@ -232,7 +245,7 @@ class rGradBoost:
             self._predictions = self._predictions + new_gamma * self._predictions_wl
 
             # Updating the residuals
-            self._residuals = np.subtract(self._predictions, y)
+            self._residuals = self._predictions - y
 
         # Incrementing the current iteration
         self.cur_m += m

@@ -24,43 +24,56 @@ import RobustIntegration.auxilliaryFunctions as aux
 
 # Constants
 rng = np.random.RandomState(42)
-plot_flag = True
+plot_flag = False
 save_results_to_file_flag = True
 results_path = "Results//"
 
-# data_type_vec = ["kc_house_data"]  # kc_house_data / diabetes / white-wine / sin / exp / make_reg
-data_type_vec = ["sin", "exp", "make_reg", "diabetes", "white-wine"]#, "kc_house_data"]
-KFold_n_splits = 5  # Number of k-fold x-validation dataset splits
+data_type_vec = ["kc_house_data"]  # kc_house_data / diabetes / white-wine / sin / exp / make_reg
+# data_type_vec = ["sin", "exp", "make_reg", "diabetes", "white-wine", "kc_house_data"]
+KFold_n_splits = 2  # Number of k-fold x-validation dataset splits
 
-ensemble_size = [16] # [16, 64] # [5] # Number of weak-learners
+ensemble_size = [8] # [16, 64] # [5] # Number of weak-learners
 tree_max_depth = 1  # Maximal depth of decision tree
 min_sample_leaf = 10
 
 snr_db_vec = np.linspace(-40, 20, 7)  # [-6]
-n_repeat = 10  # Number of iterations for estimating expected performance
-sigma_profile_type = "noiseless_fraction"  # uniform / linear / noiseless_fraction / noiseless_even (for GradBoost)
+n_repeat = 1  # Number of iterations for estimating expected performance
+sigma_profile_type = "noiseless_even"  # uniform / linear / noiseless_fraction / noiseless_even (for GradBoost)
 noisless_fraction = 0.25
 noisless_scale = 1/100
 
 n_samples = 500  # Size of the (synthetic) dataset  in case of synthetic dataset
 train_noise = 0.01  # Standard deviation of the measurement / training noise in case of synthetic dataset
 
-criterion = "mse"  # "mse" / "mae"
-reg_algo = "Bagging"  # "GradBoost" / "Bagging"
+criterion = "mae"  # "mse" / "mae"
+reg_algo = "GradBoost"  # "GradBoost" / "Bagging"
 bagging_method = "gem"  # "bem" / "gem" / "lr"
 gradboost_robust_flag = True
 
 # Gradient-descent params
-gd_learn_rate_dict = {
-    "sin": 1e-2,
-    "exp": 1e-2,
-    "make_reg": 1e-6,
-    "diabetes": 1e-4,
-    "white-wine": 1e-4,
-    "kc_house_data": 1e-6
-}
-gd_tol = 1e-2
-gd_decay_rate = 0.0
+if reg_algo == "Bagging":
+    gd_learn_rate_dict = {
+        "sin": 1e-2,
+        "exp": 1e-2,
+        "make_reg": 1e-6,
+        "diabetes": 1e-4,
+        "white-wine": 1e-4,
+        "kc_house_data": 1e-6
+    }
+    gd_tol = 1e-2  # or 1e-8
+    gd_decay_rate = 0.0  # or 0.2
+elif reg_algo == "GradBoost":
+    gd_learn_rate_dict = {
+        "sin": 25e-1,
+        "exp": 1e-1,
+        "make_reg": 1e-2,
+        "diabetes": 1e-4,
+        "white-wine": 25e-1,
+        "kc_house_data": 1e-7
+    }
+    gd_tol = 1e-12  # or 1e-12
+    gd_decay_rate = 0.0  # or 0.2
+
 
 # Verify inputs
 if reg_algo == "Bagging" and bagging_method == "lr":
@@ -93,15 +106,15 @@ if reg_algo == "GradBoost":
 
                         kfold_idx = 0
                         for train_index, test_index in kf.split(X):
-                                print("\nTRAIN:", train_index, "\nTEST:", test_index)
+                                print("\nTRAIN:", train_index[0], " to ", train_index[-1], "\nTEST:", test_index[0], " to ", test_index[-1])
                                 X_train, X_test = X[train_index], X[test_index]
                                 y_train, y_test = y[train_index], y[test_index]
 
                                 # Plotting all the points
-                                # if X_train.shape[1] == 1 and plot_flag:
-                                #     plt.figure(figsize=(12, 8))
-                                #     plt.plot(X_train[:, 0], y_train[:, 0], 'ok', label='Train')
-                                #     plt.plot(X_test[:, 0], y_test[:, 0], 'xk', label='Test')
+                                if X_train.shape[1] == 1 and plot_flag:
+                                    plt.figure(figsize=(12, 8))
+                                    plt.plot(X_train[:, 0], y_train[:, 0], 'ok', label='Train')
+                                    plt.plot(X_test[:, 0], y_test[:, 0], 'xk', label='Test')
 
                                 # - - - CLEAN GRADIENT BOOSTING - - -
                                 # Initiating the tree
@@ -155,12 +168,14 @@ if reg_algo == "GradBoost":
                                                                 min_sample_leaf=min_sample_leaf,
                                                                 TrainNoiseCov=np.zeros([_m + 1, _m + 1]),
                                                                 RobustFlag=gradboost_robust_flag,
-                                                                criterion=criterion)
+                                                                criterion=criterion,
+                                                                gd_tol=gd_tol, gd_learn_rate=gd_learn_rate_dict[data_type], gd_decay_rate=gd_decay_rate)
                                         rgb_r = rGradBoost(X=X_train, y=y_train, max_depth=tree_max_depth,
                                                                 min_sample_leaf=min_sample_leaf,
                                                                 TrainNoiseCov=noise_covariance,
                                                                 RobustFlag=gradboost_robust_flag,
-                                                                criterion=criterion)
+                                                                criterion=criterion,
+                                                                gd_tol=gd_tol, gd_learn_rate=gd_learn_rate_dict[data_type], gd_decay_rate=gd_decay_rate)
 
                                         # Fitting on training data with noise: non-robust and robust
                                         rgb_nr.fit(X_train, y_train, m=_m)

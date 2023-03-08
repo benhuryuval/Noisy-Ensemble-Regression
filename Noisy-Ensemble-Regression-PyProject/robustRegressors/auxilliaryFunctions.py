@@ -7,23 +7,23 @@ import pandas as pd
 rng = np.random.RandomState(42)
 
 # Functions:
-def f(data_type='sin', n_samples=100, X=None):
+def f(data_type='sin', n_samples=100, noise=0.1, X=None):
         if data_type == 'sin':
                 if X == None:
                         X = np.linspace(0, 6, n_samples)[:, np.newaxis]
-                f = np.sin(X).ravel() + np.sin(6 * X).ravel() + rng.normal(0, 0.1, X.shape[0])
+                f = np.sin(X).ravel() + np.sin(6 * X).ravel() + rng.normal(0, noise, X.shape[0])
         elif data_type == 'exp':
                 if X == None:
                         X = np.linspace(0, 6, n_samples)[:, np.newaxis]
-                f = np.exp(-(X ** 2)).ravel() + 1.5 * np.exp(-((X - 2) ** 2)).ravel() + rng.normal(0, 0.1, X.shape[0])
+                f = np.exp(-(X ** 2)).ravel() + 1.5 * np.exp(-((X - 2) ** 2)).ravel() + rng.normal(0, noise, X.shape[0])
         return X, f
 
 def generate(data_type=None, n_samples=100, noise=0.1, n_repeat=1):
         if data_type == 'make_reg':
                 X, y = sk.datasets.make_regression(n_samples=n_samples, n_features=15, n_informative=10, noise=noise, random_state=42)
         else:
-                X, y = f(data_type, n_samples)
-                y += np.random.normal(0.0, noise, n_samples)
+                X, y = f(data_type, n_samples, noise)
+                # y += np.random.normal(0.0, noise, n_samples)
         return X, y
 
 def get_dataset(data_type=None, n_samples=100, noise=0.1):
