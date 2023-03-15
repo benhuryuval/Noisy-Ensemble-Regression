@@ -28,26 +28,26 @@ plot_flag = False
 save_results_to_file_flag = True
 results_path = "Results//"
 
-data_type_vec = ["kc_house_data"]  # kc_house_data / diabetes / white-wine / sin / exp / make_reg
-# data_type_vec = ["sin", "exp", "make_reg", "diabetes", "white-wine", "kc_house_data"]
-KFold_n_splits = 2  # Number of k-fold x-validation dataset splits
+# data_type_vec = ["kc_house_data"]  # kc_house_data / diabetes / white-wine / sin / exp / make_reg
+data_type_vec = ["sin", "exp", "make_reg", "diabetes", "white-wine", "kc_house_data"]
+KFold_n_splits = 4  # Number of k-fold x-validation dataset splits
 
-ensemble_size = [8] # [16, 64] # [5] # Number of weak-learners
+ensemble_size = [16] # [16, 64] # [5] # Number of weak-learners
 tree_max_depth = 1  # Maximal depth of decision tree
 min_sample_leaf = 10
 
 snr_db_vec = np.linspace(-40, 20, 7)  # [-6]
-n_repeat = 1  # Number of iterations for estimating expected performance
+n_repeat = 50  # Number of iterations for estimating expected performance
 sigma_profile_type = "noiseless_even"  # uniform / linear / noiseless_fraction / noiseless_even (for GradBoost)
 noisless_fraction = 0.25
-noisless_scale = 1/100
+noisless_scale = 1/20
 
 n_samples = 500  # Size of the (synthetic) dataset  in case of synthetic dataset
 train_noise = 0.01  # Standard deviation of the measurement / training noise in case of synthetic dataset
 
 criterion = "mae"  # "mse" / "mae"
-reg_algo = "GradBoost"  # "GradBoost" / "Bagging"
-bagging_method = "gem"  # "bem" / "gem" / "lr"
+reg_algo = "Bagging"  # "GradBoost" / "Bagging"
+bagging_method = "bem"  # "bem" / "gem" / "lr"
 gradboost_robust_flag = True
 
 # Gradient-descent params
@@ -80,6 +80,7 @@ if reg_algo == "Bagging" and bagging_method == "lr":
         raise ValueError('Invalid bagging_method.')
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+print(criterion + ": " + reg_algo + ", " + bagging_method)
 
 # Main simulation loop(s)
 ####################################################
@@ -229,33 +230,34 @@ if reg_algo == "GradBoost":
 
                         if save_results_to_file_flag:
                                 results_df = pd.concat({'SNR': pd.Series(snr_db_vec),
-                                                        'GradBoost, Noiseless': pd.Series(np.log10(err_cln[:, _m_idx, :].mean(1))),
-                                                        'GradBoost, Non-Robust': pd.Series(np.log10(err_nr[:, _m_idx, :].mean(1))),
-                                                        'GradBoost, Robust': pd.Series(np.log10(err_r[:, _m_idx, :].mean(1)))},
+                                                        'GradBoost, Noiseless': pd.Series(10 * np.log10(err_cln[:, _m_idx, :].mean(1))),
+                                                        'GradBoost, Non-Robust': pd.Series(10 * np.log10(err_nr[:, _m_idx, :].mean(1))),
+                                                        'GradBoost, Robust': pd.Series(10 * np.log10(err_r[:, _m_idx, :].mean(1)))},
                                                        axis=1)
                                 results_df.to_csv(results_path + data_type + "_gbr_" + _m.__str__() + "_" + criterion + "_" + sigma_profile_type + ".csv")
                         print("---------------------------------------------------------------------------\n")
 
                 # Plot error and error gain
-                for _m_idx, _m in enumerate(ensemble_size):
-                        plt.figure(figsize=(12, 8))
-                        plt.plot(snr_db_vec, 10 * np.log10(err_cln[:, _m_idx, :].mean(1)), '-k', label='Clean')
-                        plt.plot(snr_db_vec, 10 * np.log10(err_nr[:, _m_idx, :].mean(1)), '-xr', label='Non-robust')
-                        plt.plot(snr_db_vec, 10 * np.log10(err_r[:, _m_idx, :].mean(1)), '-ob', label='Robust')
-                        plt.title("dataset: " + str(data_type) + ", T=" + str(_m) + " regressors\nnoise=" + sigma_profile_type)
-                        plt.xlabel('SNR [dB]')
-                        plt.ylabel('LAE [dB]')
-                        plt.legend()
-                        plt.show(block=False)
+                if plot_flag:
+                    for _m_idx, _m in enumerate(ensemble_size):
+                            plt.figure(figsize=(12, 8))
+                            plt.plot(snr_db_vec, 10 * np.log10(err_cln[:, _m_idx, :].mean(1)), '-k', label='Clean')
+                            plt.plot(snr_db_vec, 10 * np.log10(err_nr[:, _m_idx, :].mean(1)), '-xr', label='Non-robust')
+                            plt.plot(snr_db_vec, 10 * np.log10(err_r[:, _m_idx, :].mean(1)), '-ob', label='Robust')
+                            plt.title("dataset: " + str(data_type) + ", T=" + str(_m) + " regressors\nnoise=" + sigma_profile_type)
+                            plt.xlabel('SNR [dB]')
+                            plt.ylabel('LAE [dB]')
+                            plt.legend()
+                            plt.show(block=False)
 
-                        plt.figure(figsize=(12, 8))
-                        plt.plot(snr_db_vec,
-                                 10 * np.log10(err_nr[:, _m_idx, :].mean(1)) - 10 * np.log10(err_r[:, _m_idx, :].mean(1)),
-                                 '-ob', label='Robust')
-                        plt.title("dataset: " + str(data_type) + ", T=" + str(_m) + " regressors\nnoise=" + sigma_profile_type)
-                        plt.xlabel('SNR [dB]')
-                        plt.ylabel('LAE Gain [dB]')
-                        plt.show(block=False)
+                            plt.figure(figsize=(12, 8))
+                            plt.plot(snr_db_vec,
+                                     10 * np.log10(err_nr[:, _m_idx, :].mean(1)) - 10 * np.log10(err_r[:, _m_idx, :].mean(1)),
+                                     '-ob', label='Robust')
+                            plt.title("dataset: " + str(data_type) + ", T=" + str(_m) + " regressors\nnoise=" + sigma_profile_type)
+                            plt.xlabel('SNR [dB]')
+                            plt.ylabel('LAE Gain [dB]')
+                            plt.show(block=False)
 
 ####################################################
 # Bagging
@@ -327,6 +329,11 @@ if reg_algo == "Bagging":
                                                 sigma0 = sig_var / (snr * _m * (noisless_fraction + (1-noisless_fraction)/noisless_scale))
                                                 sigma_profile = sigma0 * np.ones([_m, ])
                                                 sigma_profile[0:round(noisless_fraction * _m)-1] *= noisless_scale
+                                                noise_covariance = np.diag(sigma_profile)
+                                        elif sigma_profile_type == "noiseless_even":
+                                                sigma0 = sig_var / (snr * (_m) * (noisless_fraction + (1-noisless_fraction)/noisless_scale))
+                                                sigma_profile = sigma0 * np.ones([_m, ])
+                                                sigma_profile[0::2] *= noisless_scale
                                                 noise_covariance = np.diag(sigma_profile)
 
                                         # - - - NON-ROBUST / ROBUST GRADIENT BOOSTING - - -

@@ -2,12 +2,12 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
 
-results_path = "Results//2023_04_03//"
+results_path = "Results//2023_03_15//16_mse_even//"
 data_type_vec = ["sin", "exp", "make_reg", "kc_house_data", "diabetes", "white-wine"]
-criterion = "mae"  # "mse" / "mae"
+criterion = "mse"  # "mse" / "mae"
 reg_algo = "Bagging"  # "GradBoost" / "Bagging"
 bagging_method = "bem"  # "bem" / "gem"
-sigma_profile_type = "noiseless_fraction"  # "noiseless_even" / "noiseless_fraction" / "uniform"
+sigma_profile_type = "noiseless_even"  # "noiseless_even" / "noiseless_fraction" / "uniform"
 T = 16
 
 # # # Robust vs non-robust MSE
@@ -55,4 +55,28 @@ for data_type_idx, data_type in enumerate(data_type_vec):
     # plt.legend()
     # plt.show(block=False)
 
+criterion = "mse"  # "mse" / "mae"
+bagging_method = "gem"  # "bem" / "gem"
+
+fig, ax = plt.figure(reg_algo + ", " + bagging_method + ": Robust vs Non-robust", figsize=(8, 6), dpi=300), plt.axes()
+plt.xlabel('SNR [dB]', fontsize=18)
+plt.ylabel(criterion.upper()+' Gap [dB]', fontsize=18)
+
+for data_type_idx, data_type in enumerate(data_type_vec):
+    fname_bag = data_type + "_" + "bagging" + "_" + bagging_method + "_" + str(T) + "_" + criterion + "_" + sigma_profile_type + ".csv"
+    err_results_df_bag = pd.read_csv(results_path + fname_bag)
+    snr_db_vec = err_results_df["SNR"]
+
+    fname_gbr = data_type + "_" + "gbr" + "_" + str(T) + "_" + criterion + "_" + sigma_profile_type + ".csv"
+    err_results_df_gbr = pd.read_csv(results_path + fname_gbr)
+
+    plt.plot(snr_db_vec,
+             err_results_df_bag["Bagging"+', Robust'] - err_results_df_gbr["GradBoost"+', Robust'],
+             color=color, label=data_label[data_type], linestyle='', marker='o', markersize=2*(len(data_type_vec)-data_type_idx))
+    plt.legend(fontsize=18)
+    plt.xticks(fontsize=16)
+    plt.yticks(fontsize=16)
+    plt.show(block=False)
+
 # # # # # # # # # # # # # # # # # # # # #
+
