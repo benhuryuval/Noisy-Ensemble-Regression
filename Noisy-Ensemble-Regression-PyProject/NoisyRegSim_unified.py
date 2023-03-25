@@ -38,15 +38,15 @@ min_sample_leaf = 10
 
 snr_db_vec = np.linspace(-40, 20, 7)  # [-6]
 n_repeat = 50  # Number of iterations for estimating expected performance
-sigma_profile_type = "noiseless_even"  # uniform / linear / noiseless_fraction / noiseless_even (for GradBoost)
+sigma_profile_type = "uniform"  # uniform / linear / noiseless_fraction / noiseless_even (for GradBoost)
 noisless_fraction = 0.25
 noisless_scale = 1/20
 
 n_samples = 500  # Size of the (synthetic) dataset  in case of synthetic dataset
 train_noise = 0.01  # Standard deviation of the measurement / training noise in case of synthetic dataset
 
-criterion = "mae"  # "mse" / "mae"
-reg_algo = "Bagging"  # "GradBoost" / "Bagging"
+criterion = "mse"  # "mse" / "mae"
+reg_algo = "GradBoost"  # "GradBoost" / "Bagging"
 bagging_method = "bem"  # "bem" / "gem" / "lr"
 gradboost_robust_flag = True
 
@@ -188,13 +188,15 @@ if reg_algo == "GradBoost":
                                         for _n in range(0, n_repeat):
                                                 # - - - NON-ROBUST - - -
                                                 pred_nr = rgb_nr.predict(X_test, PredNoiseCov=noise_covariance)
-                                                err_nr[idx_snr_db, _m_idx, kfold_idx] += np.abs(
-                                                        np.subtract(y_test[:, 0], pred_nr)).mean()
+                                                # err_nr[idx_snr_db, _m_idx, kfold_idx] += np.abs(
+                                                #         np.subtract(y_test[:, 0], pred_nr)).mean()
+                                                err_nr[idx_snr_db, _m_idx, kfold_idx] += aux.calc_error(y_test[:,0], pred_nr, criterion)
 
                                                 # - - - ROBUST - - -
                                                 pred_r = rgb_r.predict(X_test, PredNoiseCov=noise_covariance)
-                                                err_r[idx_snr_db, _m_idx, kfold_idx] += np.abs(
-                                                        np.subtract(y_test[:, 0], pred_r)).mean()
+                                                # err_r[idx_snr_db, _m_idx, kfold_idx] += np.abs(
+                                                #         np.subtract(y_test[:, 0], pred_r)).mean()
+                                                err_r[idx_snr_db, _m_idx, kfold_idx] += aux.calc_error(y_test[:,0], pred_r, criterion)
 
                                         # Expectation of error (over multiple realizations)
                                         err_nr[idx_snr_db, _m_idx, kfold_idx] /= n_repeat

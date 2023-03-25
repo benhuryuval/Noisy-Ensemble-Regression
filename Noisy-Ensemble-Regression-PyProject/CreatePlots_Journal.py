@@ -2,13 +2,15 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
 
-results_path = "Results//2023_03_15//16_mse_even//"
-data_type_vec = ["sin", "exp", "make_reg", "kc_house_data", "diabetes", "white-wine"]
+data_type_vec = ["sin", "exp", "make_reg",  "kc_house_data", "diabetes", "white-wine"]
+# data_type_vec = ["sin", "exp", "make_reg", "diabetes", "white-wine"]
 criterion = "mse"  # "mse" / "mae"
 reg_algo = "Bagging"  # "GradBoost" / "Bagging"
 bagging_method = "bem"  # "bem" / "gem"
-sigma_profile_type = "noiseless_even"  # "noiseless_even" / "noiseless_fraction" / "uniform"
+sigma_profile_type = "uniform"  # "noiseless_even" / "noiseless_fraction" / "uniform"
 T = 16
+
+results_path = "Results//2023_03_15//" + str(T) + "_" + criterion + "_" + sigma_profile_type + "//"
 
 # # # Robust vs non-robust MSE
 data_label = {
@@ -20,7 +22,12 @@ data_label = {
     "white-wine": "Wine"
 }
 
-fig, ax = plt.figure(reg_algo + ", " + bagging_method + ": Robust vs Non-robust", figsize=(8, 6), dpi=300), plt.axes()
+if reg_algo == "Bagging":
+    figname = criterion.upper() + "_" + reg_algo + "_" + bagging_method.upper() + "_" + sigma_profile_type + "_RobustVsNonrobust"
+elif reg_algo == "GradBoost":
+    figname = criterion.upper() + "_" + reg_algo + "_" + sigma_profile_type + "_RobustVsNonrobust"
+fig, ax = plt.figure(figname,
+                     figsize=(8, 6), dpi=300), plt.axes()
 plt.xlabel('SNR [dB]', fontsize=18)
 plt.ylabel(criterion.upper()+' Gain [dB]', fontsize=18)
 
@@ -38,7 +45,7 @@ for data_type_idx, data_type in enumerate(data_type_vec):
              err_results_df[reg_algo+', Non-Robust'] - err_results_df[reg_algo+', Robust'],
              color=color, label=data_label[data_type], linestyle='', marker='o', markersize=2*(len(data_type_vec)-data_type_idx))
     # ax.set_ylim(bottom=0)
-    plt.legend(fontsize=18)
+    plt.legend(fontsize=12)
     plt.xticks(fontsize=16)
     plt.yticks(fontsize=16)
     # fig.set_size_inches(6.4, 4.8, forward=True)
@@ -54,11 +61,9 @@ for data_type_idx, data_type in enumerate(data_type_vec):
     # plt.ylabel(criterion.upper() + ' [dB]')
     # plt.legend()
     # plt.show(block=False)
+fig.savefig(results_path+fig.get_label()+".png")
 
-criterion = "mse"  # "mse" / "mae"
-bagging_method = "gem"  # "bem" / "gem"
-
-fig, ax = plt.figure(reg_algo + ", " + bagging_method + ": Robust vs Non-robust", figsize=(8, 6), dpi=300), plt.axes()
+fig, ax = plt.figure(criterion.upper() + "_" + reg_algo + "_" + "rGBR_vs_r" + bagging_method.upper() + "_" + sigma_profile_type + "_Gap", figsize=(8, 6), dpi=300), plt.axes()
 plt.xlabel('SNR [dB]', fontsize=18)
 plt.ylabel(criterion.upper()+' Gap [dB]', fontsize=18)
 
@@ -70,13 +75,16 @@ for data_type_idx, data_type in enumerate(data_type_vec):
     fname_gbr = data_type + "_" + "gbr" + "_" + str(T) + "_" + criterion + "_" + sigma_profile_type + ".csv"
     err_results_df_gbr = pd.read_csv(results_path + fname_gbr)
 
+    color = next(ax._get_lines.prop_cycler)['color']
     plt.plot(snr_db_vec,
              err_results_df_bag["Bagging"+', Robust'] - err_results_df_gbr["GradBoost"+', Robust'],
              color=color, label=data_label[data_type], linestyle='', marker='o', markersize=2*(len(data_type_vec)-data_type_idx))
-    plt.legend(fontsize=18)
+    plt.legend(fontsize=12)
     plt.xticks(fontsize=16)
     plt.yticks(fontsize=16)
     plt.show(block=False)
+
+fig.savefig(results_path+fig.get_label()+".png")
 
 # # # # # # # # # # # # # # # # # # # # #
 
