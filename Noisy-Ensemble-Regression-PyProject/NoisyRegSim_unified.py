@@ -24,17 +24,15 @@ import RobustIntegration.auxilliaryFunctions as aux
 
 # Constants
 rng = np.random.RandomState(42)
-plot_flag = False
+plot_flag = False #True #False
 save_results_to_file_flag = True
 results_path = "Results//"
 
-# data_type_vec = ["kc_house_data"]  # kc_house_data / diabetes / white-wine / sin / exp / make_reg
-data_type_vec = ["sin", "exp", "make_reg", "diabetes", "white-wine", "kc_house_data"]
 KFold_n_splits = 4  # Number of k-fold x-validation dataset splits
 
 ensemble_size = [16] # [16, 64] # [5] # Number of weak-learners
-tree_max_depth = 1  # Maximal depth of decision tree
-min_sample_leaf = 10
+tree_max_depth = 3  # Maximal depth of decision tree
+min_sample_leaf = 3
 
 snr_db_vec = np.linspace(-40, 20, 7)  # [-6]
 n_repeat = 50  # Number of iterations for estimating expected performance
@@ -45,12 +43,15 @@ noisless_scale = 1/20
 n_samples = 500  # Size of the (synthetic) dataset  in case of synthetic dataset
 train_noise = 0.01  # Standard deviation of the measurement / training noise in case of synthetic dataset
 
-criterion = "mse"  # "mse" / "mae"
+data_type_vec = ["kc_house_data"]  # kc_house_data / diabetes / white-wine / sin / exp / make_reg
+# data_type_vec = ["sin", "exp", "diabetes", "make_reg", "white-wine", "kc_house_data"]
+
+criterion = "mae"  # "mse" / "mae"
 reg_algo = "GradBoost"  # "GradBoost" / "Bagging"
-bagging_method = "bem"  # "bem" / "gem" / "lr"
+bagging_method = "gem"  # "bem" / "gem" / "lr"
 gradboost_robust_flag = True
 
-# Gradient-descent params
+# Dataset specific params for Gradient-descent and other stuff
 if reg_algo == "Bagging":
     gd_learn_rate_dict = {
         "sin": 1e-2,
@@ -62,6 +63,16 @@ if reg_algo == "Bagging":
     }
     gd_tol = 1e-2  # or 1e-8
     gd_decay_rate = 0.0  # or 0.2
+
+    bag_regtol_dict = {
+        "sin": 1e-9,
+        "exp": 1e-9,
+        "make_reg": 1e-15, # doesnt affect results
+        "diabetes": 1e-9,
+        "white-wine": 1e-12,
+        "kc_house_data": 1e-2
+    }
+
 elif reg_algo == "GradBoost":
     gd_learn_rate_dict = {
         "sin": 25e-1,
@@ -338,9 +349,9 @@ if reg_algo == "Bagging":
                                                 sigma_profile[0::2] *= noisless_scale
                                                 noise_covariance = np.diag(sigma_profile)
 
-                                        # - - - NON-ROBUST / ROBUST GRADIENT BOOSTING - - -
-                                        noisy_reg = rBaggReg(cln_reg, noise_covariance, _m, bagging_method, gd_tol, gd_learn_rate_dict[data_type], gd_decay_rate)
-                                        noisy_rreg = rBaggReg(cln_reg, noise_covariance, _m, "robust-"+bagging_method, gd_tol, gd_learn_rate_dict[data_type], gd_decay_rate)
+                                        # - - - NON-ROBUST / ROBUST BAGGING - - -
+                                        noisy_reg = rBaggReg(cln_reg, noise_covariance, _m, bagging_method, gd_tol, gd_learn_rate_dict[data_type], gd_decay_rate, bag_regtol_dict[data_type])
+                                        noisy_rreg = rBaggReg(cln_reg, noise_covariance, _m, "robust-"+bagging_method, gd_tol, gd_learn_rate_dict[data_type], gd_decay_rate, bag_regtol_dict[data_type])
 
                                         # Fitting on training data with noise: non-robust and robust
                                         if criterion == "mse":
@@ -411,7 +422,7 @@ if reg_algo == "Bagging":
                                               )
 
                                         # Sample presentation of data
-                                        if X_train.shape[1] == 1 and plot_flag and False:
+                                        if X_train.shape[1] == 1 and plot_flag:
                                                 fig_dataset = plt.figure(figsize=(12, 8))
                                                 plt.plot(X_train[:, 0], y_train, 'x', label="Train")
                                                 plt.plot(X_test[:, 0], pred_cln, 'o',

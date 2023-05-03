@@ -20,7 +20,8 @@ def f(data_type='sin', n_samples=100, X=None):
 
 def generate(data_type=None, n_samples=100, noise=0.1, n_repeat=1):
         if data_type == 'make_reg':
-                X, y = sk.datasets.make_regression(n_samples=n_samples, n_features=15, n_informative=10, noise=noise, random_state=42)
+                X, y = sk.datasets.make_regression(n_samples=n_samples, n_features=3, n_informative=2, noise=noise, random_state=42)
+                y /= np.max(y)
         else:
                 X, y = f(data_type, n_samples)
                 y += np.random.normal(0.0, noise, n_samples)

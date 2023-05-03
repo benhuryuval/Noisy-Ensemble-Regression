@@ -14,7 +14,7 @@ class rBaggReg:  # Robust Bagging Regressor
     # The supported error criteria are: MSE (l2) and MAE (l1).
 
 
-    def __init__(self, bagging_regressor, noise_covariance=None, n_base_estimators=1, integration_type='bem', gd_tol=1e-6, learn_rate= 1e-6, decay_rate=0.0):
+    def __init__(self, bagging_regressor, noise_covariance=None, n_base_estimators=1, integration_type='bem', gd_tol=1e-6, learn_rate= 1e-6, decay_rate=0.0, bag_tol=0):
         self.bagging_regressor = bagging_regressor
         if noise_covariance is None:
             self.noise_covariance = np.eye(n_base_estimators)
@@ -25,6 +25,7 @@ class rBaggReg:  # Robust Bagging Regressor
         self.integration_type = integration_type
         # gradient=descent params
         self.gd_tol, self.learn_rate, self.decay_rate = gd_tol, learn_rate, decay_rate
+        self.bag_tol = bag_tol
 
     def fit_mse(self, X, y):
 
@@ -40,7 +41,8 @@ class rBaggReg:  # Robust Bagging Regressor
             for k, base_estimator in enumerate(self.bagging_regressor.estimators_):
                 base_prediction[k, :] = base_estimator.predict(X)
             error_covariance = np.cov(base_prediction - y)  # cov[\hat{f}-y]
-            err_mat_rglrz = np.real_if_close(error_covariance, tol=1e-1) + 1e-2 * np.diag(np.ones(self.n_base_estimators, ))
+            # err_mat_rglrz = np.real_if_close(error_covariance, tol=1e-1) + 1e-1 * np.diag(np.ones(self.n_base_estimators, ))
+            err_mat_rglrz = error_covariance + self.bag_tol * np.diag(np.ones(self.n_base_estimators, ))
 
             if auxfun.is_psd_mat(err_mat_rglrz):
                 ones_mat = np.ones([self.n_base_estimators, self.n_base_estimators])
@@ -72,7 +74,8 @@ class rBaggReg:  # Robust Bagging Regressor
                 base_prediction[k, :] = base_estimator.predict(X)
             error_covariance = np.cov(base_prediction - y)  # cov[\hat{f}-y]
             c_mat = error_covariance + self.noise_covariance
-            c_mat_rglrz = np.real_if_close(c_mat, tol=1e-1) + 1e-2 * np.diag(np.ones(self.n_base_estimators, ))
+            # c_mat_rglrz = np.real_if_close(c_mat, tol=1e-9*c_mat.mean()) + self.bag_tol * np.diag(np.ones(self.n_base_estimators, ))
+            c_mat_rglrz = c_mat + self.bag_tol * np.diag(np.ones(self.n_base_estimators, ))
             if auxfun.is_psd_mat(c_mat_rglrz):
                 ones_mat = np.ones([self.n_base_estimators, self.n_base_estimators])
                 w, v = sp.linalg.eig(c_mat_rglrz, ones_mat)
