@@ -7,32 +7,36 @@ import pandas as pd
 rng = np.random.RandomState(42)
 
 # Functions:
-def f(data_type='sin', n_samples=100, noise=0.1, X=None):
+def f(data_type='sin', n_samples=100, X=None):
         if data_type == 'sin':
                 if X == None:
-                        X = np.linspace(0, 6, n_samples)[:, np.newaxis]
-                f = np.sin(X).ravel() + np.sin(6 * X).ravel() + rng.normal(0, noise, X.shape[0])
+                    X = np.linspace(0, 6, n_samples)[:, np.newaxis]
+                f = np.sin(X).ravel() + np.sin(6 * X).ravel()# + rng.normal(0, 0.1, X.shape[0])
         elif data_type == 'exp':
                 if X == None:
-                        X = np.linspace(0, 6, n_samples)[:, np.newaxis]
-                f = np.exp(-(X ** 2)).ravel() + 1.5 * np.exp(-((X - 2) ** 2)).ravel() + rng.normal(0, noise, X.shape[0])
+                    X = np.linspace(0, 6, n_samples)[:, np.newaxis]
+                f = np.exp(-(X ** 2)).ravel() + 1.5 * np.exp(-((X - 2) ** 2)).ravel()# + rng.normal(0, 0.1, X.shape[0])
         return X, f
 
-def generate(data_type=None, n_samples=100, noise=0.1, n_repeat=1):
+def generate(data_type=None, n_samples=100, noise=0.0, n_repeat=1):
         if data_type == 'make_reg':
-                X, y = sk.datasets.make_regression(n_samples=n_samples, n_features=15, n_informative=10, noise=noise, random_state=42)
+                X, y = sk.datasets.make_regression(n_samples=n_samples, n_features=3, n_informative=2, noise=noise, random_state=42)
+                y /= np.max(y)
         else:
-                X, y = f(data_type, n_samples, noise)
-                # y += np.random.normal(0.0, noise, n_samples)
+                X, y = f(data_type, n_samples)
+                y += np.random.normal(0.0, noise, n_samples)
         return X, y
 
 def get_dataset(data_type=None, n_samples=100, noise=0.1):
-        datasets_path = "..//Datasets//"
+        # datasets_path = "..//Datasets//"
+        datasets_path = "C://Users//Yuval//Google Drive//PhD//RegressionPaper//Code//Noisy-Ensemble-Regression//Datasets//"
         if data_type == 'kc_house_data':
                 dataset_link = datasets_path + "kc_house_data.csv"
                 dataset_df = pd.read_csv(dataset_link)
                 dataset_df.drop("date", axis=1, inplace=True)
-                X, y = dataset_df.drop('price', axis=1, inplace=False), dataset_df['price']
+                X, y = dataset_df.drop(['price', 'id'], axis=1, inplace=False), dataset_df['price']
+                X, y = X.head(1000), y.head(1000)
+                X, y = (X - X.mean()) / X.std(), (y - y.mean()) / y.std()
         elif data_type == 'white-wine':
                 dataset_link = datasets_path + "winequality-white.csv"
                 dataset_df = pd.read_csv(dataset_link, sep=';')
@@ -74,7 +78,7 @@ def gradient_descent_scalar(gamma_init, grad_fun, cost_fun, max_iter=30000, min_
         # initializations
         cost_evolution = [np.array([[0.0]])] * max_iter
         gamma_evolution = [np.array([[0.0]])] * max_iter
-        eps = 1e-8  # tolerance value for adagrad learning rate update
+        eps = 1e-15  # tolerance value for adagrad learning rate update
         step, i = np.array([[0.0]]), 0  # initialize gradient-descent step to 0, iteration index in evolution
 
         # perform remaining iterations of gradient-descent
@@ -84,7 +88,7 @@ def gradient_descent_scalar(gamma_init, grad_fun, cost_fun, max_iter=30000, min_
             grad, cost_evolution[i] = grad_fun(gamma_evolution[i]), cost_fun(gamma_evolution[i])
 
             # check convergence
-            if i > max(min_iter, 0) and np.abs(cost_evolution[i]-cost_evolution[i-1]) <= tol:
+            if i > max(min_iter, 0) and np.abs(cost_evolution[i]-cost_evolution[i-1]) <= tol*np.abs(np.mean(cost_evolution[i-1:i+1])):
                 break
             else:
                 # update learning rate and advance according to AdaGrad

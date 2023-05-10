@@ -19,7 +19,7 @@ import matplotlib.pyplot as plt  # Plotting
 # Noisy regression classes
 from robustRegressors.rBaggReg import rBaggReg as rBaggReg
 from robustRegressors.rGradBoost import rGradBoost as rGradBoost
-import RobustIntegration.auxilliaryFunctions as aux
+import robustRegressors.auxilliaryFunctions as aux
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 # Constants
@@ -28,22 +28,22 @@ plot_flag = False #True #False
 save_results_to_file_flag = True
 results_path = "Results//"
 
-KFold_n_splits = 4  # Number of k-fold x-validation dataset splits
+KFold_n_splits = 5  # Number of k-fold x-validation dataset splits
 
-ensemble_size = [16] # [16, 64] # [5] # Number of weak-learners
+ensemble_size = [10] # [16, 64] # [5] # Number of weak-learners
 tree_max_depth = 3  # Maximal depth of decision tree
 min_sample_leaf = 3
 
-snr_db_vec = np.linspace(-40, 20, 7)  # [-6]
+snr_db_vec = np.linspace(-30, 20, 7)  # [-6]
 n_repeat = 50  # Number of iterations for estimating expected performance
-sigma_profile_type = "uniform"  # uniform / linear / noiseless_fraction / noiseless_even (for GradBoost)
+sigma_profile_type = "noiseless_even"  # uniform / linear / noiseless_fraction / noiseless_even (for GradBoost)
 noisless_fraction = 0.25
 noisless_scale = 1/20
 
 n_samples = 500  # Size of the (synthetic) dataset  in case of synthetic dataset
 train_noise = 0.01  # Standard deviation of the measurement / training noise in case of synthetic dataset
 
-data_type_vec = ["kc_house_data"]  # kc_house_data / diabetes / white-wine / sin / exp / make_reg
+data_type_vec = ["diabetes"]  # kc_house_data / diabetes / white-wine / sin / exp / make_reg
 # data_type_vec = ["sin", "exp", "diabetes", "make_reg", "white-wine", "kc_house_data"]
 
 criterion = "mae"  # "mse" / "mae"
@@ -75,14 +75,22 @@ if reg_algo == "Bagging":
 
 elif reg_algo == "GradBoost":
     gd_learn_rate_dict = {
-        "sin": 25e-1,
+        "sin": 1e-1,
         "exp": 1e-1,
-        "make_reg": 1e-2,
-        "diabetes": 1e-4,
-        "white-wine": 25e-1,
-        "kc_house_data": 1e-7
+        "make_reg": 1e-1,
+        "diabetes": 1e-4, # TODO: Optimize
+        "white-wine": 25e-1, # TODO: Optimize
+        "kc_house_data": 1e-2 # TODO: Optimize
     }
-    gd_tol = 1e-12  # or 1e-12
+    gd_learn_rate_dict_r = {
+        "sin": 1e-3,
+        "exp": 1e-3,
+        "make_reg": 1e-3,
+        "diabetes": 1e-4, # TODO: Optimize
+        "white-wine": 25e-1, # TODO: Optimize
+        "kc_house_data": 1e-2 # TODO: Optimize
+    }
+    gd_tol = 1e-6  # or 1e-12
     gd_decay_rate = 0.0  # or 0.2
 
 
@@ -129,12 +137,13 @@ if reg_algo == "GradBoost":
                                     plt.plot(X_test[:, 0], y_test[:, 0], 'xk', label='Test')
 
                                 # - - - CLEAN GRADIENT BOOSTING - - -
-                                # Initiating the tree
+                                # # Initiating the tree
                                 rgb_cln = rGradBoost(X=X_train, y=y_train, max_depth=tree_max_depth,
                                                         min_sample_leaf=min_sample_leaf,
                                                         TrainNoiseCov=np.zeros([_m + 1, _m + 1]),
                                                         RobustFlag = gradboost_robust_flag,
-                                                        criterion=criterion)
+                                                        criterion=criterion,
+                                                        gd_tol=gd_tol, gd_learn_rate=gd_learn_rate_dict[data_type], gd_decay_rate=gd_decay_rate)
 
                                 # Fitting on training data
                                 rgb_cln.fit(X_train, y_train, m=_m)
@@ -154,11 +163,11 @@ if reg_algo == "GradBoost":
 
                                         # Setting noise covariance matrix
                                         if _m == 0:
-                                                sigma_profile = sig_var / snr  # noise variance
+                                                sigma_profile = sig_var / (snr * ensemble_size[0])  # noise variance
                                                 noise_covariance = np.diag(np.reshape(sigma_profile, (1,)))
                                         elif sigma_profile_type == "uniform":
-                                                sigma0 = sig_var / (snr * _m)
-                                                noise_covariance = np.diag(sigma0 * np.ones([_m + 1, ]))
+                                                sigma0 = sig_var / (snr * ensemble_size[0])
+                                                noise_covariance = np.diag(sigma0 * np.ones([ensemble_size[0] + 1, ]))
                                         elif sigma_profile_type == "linear":
                                                 sigma_profile = np.linspace(1, 1/(_m+1), _m+1)
                                                 sigma0 = sig_var / (snr * sigma_profile.sum())
@@ -187,7 +196,7 @@ if reg_algo == "GradBoost":
                                                                 TrainNoiseCov=noise_covariance,
                                                                 RobustFlag=gradboost_robust_flag,
                                                                 criterion=criterion,
-                                                                gd_tol=gd_tol, gd_learn_rate=gd_learn_rate_dict[data_type], gd_decay_rate=gd_decay_rate)
+                                                                gd_tol=gd_tol, gd_learn_rate=gd_learn_rate_dict_r[data_type], gd_decay_rate=gd_decay_rate)
 
                                         # Fitting on training data with noise: non-robust and robust
                                         rgb_nr.fit(X_train, y_train, m=_m)
@@ -223,9 +232,9 @@ if reg_algo == "GradBoost":
                                         if X_train.shape[1] == 1 and plot_flag:
                                                 fig_dataset = plt.figure(figsize=(12, 8))
                                                 plt.plot(X_train[:, 0], y_train, 'x', label="Train")
-                                                plt.plot(X_test[:, 0], pred_cln, 'o',
-                                                         label="Clean, " + "err=" + "{:.4f}".format(
-                                                                 err_cln[0, _m_idx, kfold_idx]))
+                                                # plt.plot(X_test[:, 0], pred_cln, 'o',
+                                                #          label="Clean, " + "err=" + "{:.4f}".format(
+                                                #                  err_cln[0, _m_idx, kfold_idx]))
                                                 plt.plot(X_test[:, 0], pred_r, 'o',
                                                          label="Robust, " + "err=" + "{:.4f}".format(
                                                                  err_r[idx_snr_db, _m_idx, kfold_idx]))
@@ -251,7 +260,7 @@ if reg_algo == "GradBoost":
                         print("---------------------------------------------------------------------------\n")
 
                 # Plot error and error gain
-                if plot_flag:
+                if True: #plot_flag:
                     for _m_idx, _m in enumerate(ensemble_size):
                             plt.figure(figsize=(12, 8))
                             plt.plot(snr_db_vec, 10 * np.log10(err_cln[:, _m_idx, :].mean(1)), '-k', label='Clean')
@@ -350,8 +359,8 @@ if reg_algo == "Bagging":
                                                 noise_covariance = np.diag(sigma_profile)
 
                                         # - - - NON-ROBUST / ROBUST BAGGING - - -
-                                        noisy_reg = rBaggReg(cln_reg, noise_covariance, _m, bagging_method, gd_tol, gd_learn_rate_dict[data_type], gd_decay_rate, bag_regtol_dict[data_type])
-                                        noisy_rreg = rBaggReg(cln_reg, noise_covariance, _m, "robust-"+bagging_method, gd_tol, gd_learn_rate_dict[data_type], gd_decay_rate, bag_regtol_dict[data_type])
+                                        noisy_reg = rBaggReg(cln_reg,   noise_covariance, _m, bagging_method,           gd_tol, gd_learn_rate_dict[data_type], gd_decay_rate, bag_regtol_dict[data_type])
+                                        noisy_rreg = rBaggReg(cln_reg,  noise_covariance, _m, "robust-"+bagging_method, gd_tol, gd_learn_rate_dict[data_type], gd_decay_rate, bag_regtol_dict[data_type])
 
                                         # Fitting on training data with noise: non-robust and robust
                                         if criterion == "mse":
@@ -449,7 +458,7 @@ if reg_algo == "Bagging":
                                                        axis=1)
                                 results_df.to_csv(results_path + data_type + "_bagging_" + bagging_method + "_" + _m.__str__() + "_" + criterion + "_" + sigma_profile_type + ".csv")
 
-                        if plot_flag:
+                        if True: #plot_flag:
                                 # Plot error results
                                 for _m_idx, _m in enumerate(ensemble_size):
                                         plt.figure(figsize=(12, 8))

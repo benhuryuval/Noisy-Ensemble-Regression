@@ -59,26 +59,26 @@ class rGradBoost:
         # Optimizing the first regressor gamma_0 and saving as the most recent prediction
         def reg0_line_search(self):
             miny, maxy = np.min(self.y), np.max(self.y)
-            npts = int(1e3)
+            npts = int(1e5)
             g_vec = np.linspace(miny, maxy, num=int(npts))
             G = np.repeat(g_vec.reshape(1, npts), len(y), axis=0)
             Y = np.repeat(y, npts, axis=1)
             if self.TrainNoiseCov[0, 0] == 0:
-                # deriv = -np.sign(G-Y).sum()
                 cost_mat = np.abs(G-Y)
+                # deriv = -np.sign(G-Y).sum()
             else:
                 s0 = np.sqrt(self.TrainNoiseCov[0, 0])
                 G_Y_s0 = (G-Y) / s0
                 cost_mat = np.sqrt(2/np.pi) * s0 * np.exp(-0.5 * G_Y_s0**2) + (G-Y) * (1 - 2*sp.stats.norm.cdf(-G_Y_s0))
                 # deriv = -np.sqrt(2/np.pi) * G_Y_s0*s0 * gaussExpTerm * (1-2*sp.stats.norm.cdf(-G_Y_s0)) + 2*G_Y_s0 * gaussExpTerm/np.sqrt(2*np.pi*s0**2)
             # g_idx = np.argmin(np.abs(deriv.sum(axis=0)))
-            cost = cost_mat.sum(axis=0)
+            cost = cost_mat.mean(axis=0)
             g_idx = np.argmin(cost)
 
             # - - - - - - - - - - - - - - - - - - - - - - - - - -
             if False:
                 fig_lae = plt.figure(figsize=(12, 8))
-                plt.plot(g_vec, 10 * np.log10(cost), '.', label="LAE")
+                plt.plot(g_vec, cost, '.', label="LAE")
                 plt.xlabel('gamma')
                 plt.ylabel('LAE [dB]')
                 plt.legend()
@@ -102,7 +102,7 @@ class rGradBoost:
         self._predictions = self._predictions_wl
 
         # Initialize residuals
-        self._residuals = self._predictions - y
+        self._residuals = y - self._predictions
 
     ''' - - - LAE GradBoost: Unconstrained weight optimization - - - '''
     def fit(self, X, y, m: int = 10):
@@ -161,33 +161,34 @@ class rGradBoost:
                     else:
                         gs = np.abs(gamma) * np.abs(sigma)
                         a_tag = np.sqrt(2 / np.pi) * sigma * np.sign(gamma)
-                        b_tag = -mu * (phi * gamma - mu) / (gamma ** 3 * sigma ** 2) * np.exp(-0.5 * (mu / gs) ** 2)
+                        b_tag = mu * (mu - gamma * phi) / (gamma ** 3 * sigma ** 2) * np.exp(-0.5 * (mu / gs) ** 2)
                         c_tag = phi
-                        d_tag = 2 * sp.stats.norm.pdf(-0.5 * mu / gs) * (np.abs(gamma)*phi - np.sign(gamma)*mu) / (
-                                    gamma ** 2 * sigma)
+                        # d_tag = sp.stats.norm.pdf(-0.5 * mu / gs) * \
+                        #         (np.abs(gamma)*phi - np.sign(gamma)*mu) / (gamma ** 2 * sigma)
+                        d_tag = np.sqrt(2 / np.pi) * np.exp(-0.5 * mu**2 / gs**2) * \
+                                (np.abs(gamma)*phi - np.sign(gamma)*mu) / (gamma ** 2 * sigma)
                         grad = np.mean(a_tag * b + b_tag * a + c_tag * d + d_tag * c, axis=0, keepdims=True)
                     return grad
                 def cost_gb_mae(_predictions_wl, _residuals, gamma, sigma):
                     a, b, c, d = calc_args(_predictions_wl, _residuals, gamma, sigma)
                     return np.mean(a * b + c * d)
-                grad_fun = lambda gamma: grad_gb_mae(self._predictions_wl, self._residuals, gamma, sigma*self.RobustFlag)
-                cost_fun = lambda gamma: cost_gb_mae(self._predictions_wl, self._residuals, gamma, sigma*self.RobustFlag)
+                grad_fun = lambda gamma: grad_gb_mae(self._predictions_wl, self._residuals, gamma, sigma)
+                cost_fun = lambda gamma: cost_gb_mae(self._predictions_wl, self._residuals, gamma, sigma)
+
+                gd_learn_rate = self.gd_learn_rate * 2**(_+1)
                 cost_evolution, gamma_evolution, stop_iter = auxfun.gradient_descent_scalar(gamma_init, grad_fun, cost_fun,
-                                                                                    max_iter=500, min_iter=100,
-                                                                                    tol=self.gd_tol, learn_rate=self.gd_learn_rate, decay_rate=self.gd_decay_rate)
-                new_gamma = gamma_evolution[np.argmin(cost_evolution[0:stop_iter])]
+                                                                                    max_iter=2000, min_iter=100,
+                                                                                    tol=self.gd_tol, learn_rate=gd_learn_rate, decay_rate=self.gd_decay_rate)
+                new_gamma = gamma_evolution[np.nanargmin(cost_evolution[0:stop_iter])]
 
                 # # DEBUG # #
-                if False and sigma != 0:
+                if True:
                     import matplotlib.pyplot as plt
                     fig, ax = plt.figure("Cost evolution", figsize=(8, 6), dpi=300), plt.axes()
                     plt.plot(cost_evolution[0:stop_iter])
                     plt.xlabel('Iteration', fontsize=18)
                     plt.ylabel("Cost", fontsize=18)
                     plt.show(block=False)
-                    bb=0
-
-                if new_gamma<=0:
                     bb=0
                 # # DEBUG END # #
 
@@ -217,17 +218,20 @@ class rGradBoost:
                 plt.close(fig_debug2)
 
             if False:
+                import matplotlib.pyplot as plt
+                fig_dataset = plt.figure(figsize=(12, 8))
+                plt.plot(self.X[:, 0], self.y, 'x', label="Train")
+                plt.plot(self.X[:, 0], self._predictions, 'o', label="Prediction")
+                plt.xlabel('x')
+                plt.ylabel('y')
+                plt.close(fig_dataset)
+
                 def get_lae(self, X, y):
                     """
                     Calculate the LAE of the predictions made by an ensemble for arbitrary input(s) X
                     """
                     return np.abs(np.subtract(y, self.predict(X))).mean()
 
-                fig_dataset = plt.figure(figsize=(12, 8))
-                plt.plot(self.X[:, 0], self.y, 'x', label="Train")
-                plt.plot(self.X[:, 0], self._predictions, 'o', label="Prediction")
-                plt.xlabel('x')
-                plt.ylabel('y')
                 plt.title(self.get_lae(self.X, self.y))
                 plt.title(np.mean(np.abs(self._predictions-self.y)))
                 plt.legend()
@@ -265,3 +269,11 @@ class rGradBoost:
             noisy_pred = self.weak_learners[_m].predict(X) + pred_noise[:, _m+1]
             yhat += self.gamma[_m] * noisy_pred
         return yhat
+
+    def plot(self):
+        import matplotlib.pyplot as plt
+        fig_dataset = plt.figure(figsize=(12, 8))
+        plt.plot(self.X[:, 0], self.y, 'x', label="Train")
+        plt.plot(self.X[:, 0], self._predictions, 'o', label="Prediction")
+        plt.xlabel('x')
+        plt.ylabel('y')
