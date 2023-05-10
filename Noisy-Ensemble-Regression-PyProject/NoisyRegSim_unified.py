@@ -43,10 +43,10 @@ noisless_scale = 1/20
 n_samples = 500  # Size of the (synthetic) dataset  in case of synthetic dataset
 train_noise = 0.01  # Standard deviation of the measurement / training noise in case of synthetic dataset
 
-data_type_vec = ["diabetes"]  # kc_house_data / diabetes / white-wine / sin / exp / make_reg
-# data_type_vec = ["sin", "exp", "diabetes", "make_reg", "white-wine", "kc_house_data"]
+data_type_vec = ["white-wine"]  # kc_house_data / diabetes / white-wine / sin / exp / make_reg
+data_type_vec = ["sin", "exp", "diabetes", "make_reg", "white-wine", "kc_house_data"]
 
-criterion = "mae"  # "mse" / "mae"
+criterion = "mse"  # "mse" / "mae"
 reg_algo = "GradBoost"  # "GradBoost" / "Bagging"
 bagging_method = "gem"  # "bem" / "gem" / "lr"
 gradboost_robust_flag = True
@@ -78,17 +78,17 @@ elif reg_algo == "GradBoost":
         "sin": 1e-1,
         "exp": 1e-1,
         "make_reg": 1e-1,
-        "diabetes": 1e-4, # TODO: Optimize
-        "white-wine": 25e-1, # TODO: Optimize
-        "kc_house_data": 1e-2 # TODO: Optimize
+        "diabetes": 1e-4,
+        "white-wine": 25e-1,
+        "kc_house_data": 1e-2
     }
     gd_learn_rate_dict_r = {
         "sin": 1e-3,
         "exp": 1e-3,
         "make_reg": 1e-3,
-        "diabetes": 1e-4, # TODO: Optimize
-        "white-wine": 25e-1, # TODO: Optimize
-        "kc_house_data": 1e-2 # TODO: Optimize
+        "diabetes": 1e-5,
+        "white-wine": 1e-3,
+        "kc_house_data": 1e-3
     }
     gd_tol = 1e-6  # or 1e-12
     gd_decay_rate = 0.0  # or 0.2
