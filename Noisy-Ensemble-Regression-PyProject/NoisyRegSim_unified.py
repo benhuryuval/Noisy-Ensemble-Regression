@@ -30,12 +30,12 @@ results_path = "Results//"
 
 KFold_n_splits = 5  # Number of k-fold x-validation dataset splits
 
-ensemble_size = [10] # [16, 64] # [5] # Number of weak-learners
+ensemble_size = [16]  # [16, 64] # [5] # Number of weak-learners
 tree_max_depth = 3  # Maximal depth of decision tree
 min_sample_leaf = 3
 
-snr_db_vec = np.linspace(-30, 20, 7)  # [-6]
-n_repeat = 50  # Number of iterations for estimating expected performance
+snr_db_vec = np.linspace(-30, 20, 10)  # [-6]
+n_repeat = 100  # Number of iterations for estimating expected performance
 sigma_profile_type = "noiseless_even"  # uniform / linear / noiseless_fraction / noiseless_even (for GradBoost)
 noisless_fraction = 0.25
 noisless_scale = 1/20
@@ -43,10 +43,10 @@ noisless_scale = 1/20
 n_samples = 500  # Size of the (synthetic) dataset  in case of synthetic dataset
 train_noise = 0.01  # Standard deviation of the measurement / training noise in case of synthetic dataset
 
-data_type_vec = ["white-wine"]  # kc_house_data / diabetes / white-wine / sin / exp / make_reg
-data_type_vec = ["sin", "exp", "diabetes", "make_reg", "white-wine", "kc_house_data"]
+data_type_vec = ["kc_house_data"]  # kc_house_data / diabetes / white-wine / sin / exp / make_reg
+# data_type_vec = ["sin", "exp", "diabetes", "make_reg", "white-wine", "kc_house_data"]
 
-criterion = "mse"  # "mse" / "mae"
+criterion = "mae"  # "mse" / "mae"
 reg_algo = "GradBoost"  # "GradBoost" / "Bagging"
 bagging_method = "gem"  # "bem" / "gem" / "lr"
 gradboost_robust_flag = True
@@ -99,7 +99,7 @@ if reg_algo == "Bagging" and bagging_method == "lr":
         raise ValueError('Invalid bagging_method.')
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-print(criterion + ": " + reg_algo + ", " + bagging_method)
+print(criterion + ": " + reg_algo + ", " + bagging_method + ", " + sigma_profile_type)
 
 # Main simulation loop(s)
 ####################################################

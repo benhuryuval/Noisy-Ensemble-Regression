@@ -59,7 +59,7 @@ class rGradBoost:
         # Optimizing the first regressor gamma_0 and saving as the most recent prediction
         def reg0_line_search(self):
             miny, maxy = np.min(self.y), np.max(self.y)
-            npts = int(1e5)
+            npts = int(1e3)
             g_vec = np.linspace(miny, maxy, num=int(npts))
             G = np.repeat(g_vec.reshape(1, npts), len(y), axis=0)
             Y = np.repeat(y, npts, axis=1)
@@ -182,7 +182,7 @@ class rGradBoost:
                 new_gamma = gamma_evolution[np.nanargmin(cost_evolution[0:stop_iter])]
 
                 # # DEBUG # #
-                if True:
+                if False:
                     import matplotlib.pyplot as plt
                     fig, ax = plt.figure("Cost evolution", figsize=(8, 6), dpi=300), plt.axes()
                     plt.plot(cost_evolution[0:stop_iter])
