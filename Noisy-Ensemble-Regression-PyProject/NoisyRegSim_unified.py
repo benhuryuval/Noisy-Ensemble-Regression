@@ -37,19 +37,31 @@ min_sample_leaf = 3
 snr_db_vec = np.linspace(-30, 20, 10)  # [-6]
 n_repeat = 100  # Number of iterations for estimating expected performance
 sigma_profile_type = "noiseless_even"  # uniform / linear / noiseless_fraction / noiseless_even (for GradBoost)
-noisless_fraction = 0.25
 noisless_scale = 1/20
 
 n_samples = 500  # Size of the (synthetic) dataset  in case of synthetic dataset
 train_noise = 0.01  # Standard deviation of the measurement / training noise in case of synthetic dataset
 
-data_type_vec = ["kc_house_data"]  # kc_house_data / diabetes / white-wine / sin / exp / make_reg
-# data_type_vec = ["sin", "exp", "diabetes", "make_reg", "white-wine", "kc_house_data"]
+# data_type_vec = ["kc_house_data"]  # kc_house_data / diabetes / white-wine / sin / exp / make_reg
+data_type_vec = ["sin", "exp", "diabetes", "make_reg", "white-wine", "kc_house_data"]
 
 criterion = "mae"  # "mse" / "mae"
 reg_algo = "GradBoost"  # "GradBoost" / "Bagging"
 bagging_method = "gem"  # "bem" / "gem" / "lr"
 gradboost_robust_flag = True
+
+# ===============================================
+example_plots_flag = True
+if example_plots_flag:
+    ensemble_size = [5]
+    criterion = "mse"  # "mse" / "mae"
+    reg_algo = "Bagging"  # "GradBoost" / "Bagging"
+    bagging_method = "gem"  # "bem" / "gem" / "lr"
+    snr_db_vec = [0]
+    sigma_profile_type = "noiseless_fraction"
+    noisless_fraction = 0.8
+    data_type_vec = ["sin", "exp"]
+# ===============================================
 
 # Dataset specific params for Gradient-descent and other stuff
 if reg_algo == "Bagging":
@@ -176,7 +188,7 @@ if reg_algo == "GradBoost":
                                         elif sigma_profile_type == "noiseless_fraction":
                                                 sigma0 = sig_var / (snr * (_m+1) * (noisless_fraction + (1-noisless_fraction)/noisless_scale))
                                                 sigma_profile = sigma0 * np.ones([_m+1, ])
-                                                sigma_profile[0:2:round(noisless_fraction * (_m+1))-1] *= noisless_scale
+                                                sigma_profile[0:round(noisless_fraction * (_m+1))-1] *= noisless_scale
                                                 noise_covariance = np.diag(sigma_profile)
                                         elif sigma_profile_type == "noiseless_even":
                                                 sigma0 = sig_var / (snr * (_m+1) * (noisless_fraction + (1-noisless_fraction)/noisless_scale))
@@ -348,12 +360,12 @@ if reg_algo == "Bagging":
                                                 sigma_profile *= sigma0
                                                 noise_covariance = np.diag(sigma_profile)
                                         elif sigma_profile_type == "noiseless_fraction":
-                                                sigma0 = sig_var / (snr * _m * (noisless_fraction + (1-noisless_fraction)/noisless_scale))
+                                                sigma0 = (_m * sig_var) / (snr * (noisless_fraction/noisless_scale + (1-noisless_fraction)))
                                                 sigma_profile = sigma0 * np.ones([_m, ])
                                                 sigma_profile[0:round(noisless_fraction * _m)-1] *= noisless_scale
                                                 noise_covariance = np.diag(sigma_profile)
                                         elif sigma_profile_type == "noiseless_even":
-                                                sigma0 = sig_var / (snr * (_m) * (noisless_fraction + (1-noisless_fraction)/noisless_scale))
+                                                sigma0 = (_m * sig_var) / (snr * (noisless_fraction/noisless_scale + (1-noisless_fraction)))
                                                 sigma_profile = sigma0 * np.ones([_m, ])
                                                 sigma_profile[0::2] *= noisless_scale
                                                 noise_covariance = np.diag(sigma_profile)
@@ -372,7 +384,7 @@ if reg_algo == "Bagging":
                                         # - - - - - - - - - - - - - - - - -
 
                                         # Plotting all the points
-                                        if X_train.shape[1] == 1 and plot_flag and False:
+                                        if X_train.shape[1] == 1 and example_plots_flag:
                                             # with plt.style.context(['science', 'grid']):
                                             n_repeat_plt = 25
                                             fontsize = 18
@@ -382,7 +394,7 @@ if reg_algo == "Bagging":
                                             sort_idxs_test = np.argsort(X_test[:, 0])
                                             sort_idxs_train = np.argsort(X_train[:, 0])
                                             for _n in range(0, n_repeat_plt):
-                                                y_pred[:, _n] = noisy_reg.predict(X_test[sort_idxs_test])
+                                                y_pred[:, _n] = noisy_reg.predict(X_test[sort_idxs_test]) #[:, 0]
                                             X_test_ravel = np.repeat(X_test[sort_idxs_test, 0], n_repeat_plt)
                                             plt.plot(X_test_ravel, y_pred.ravel(), linestyle='', marker='x', color='r', label='Test: Noisy prediction', markersize=6.0, alpha=0.25)
                                             plt.plot(X_train[sort_idxs_train, 0], y_train[sort_idxs_train, 0], linestyle='-', label='Train', linewidth=8.0)
@@ -407,6 +419,7 @@ if reg_algo == "Bagging":
                                                      fontsize=fontsize,
                                                      bbox=dict(facecolor='green', alpha=0.1))
                                             plt.show(block=False)
+                                            fig.savefig(fig.get_label() + ".png")
 
                                         # Predicting with noise
                                         pred_nr, pred_r = np.zeros(len(y_test)), np.zeros(len(y_test))
