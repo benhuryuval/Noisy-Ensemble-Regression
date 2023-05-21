@@ -1,16 +1,17 @@
 import pandas as pd
 import matplotlib.pyplot as plt
+import os  # from os.path import exists
 import numpy as np
 
 data_type_vec = ["sin", "exp", "make_reg", "diabetes", "white-wine", "kc_house_data"]
 # data_type_vec = ["sin", "exp", "make_reg", "diabetes", "white-wine"]
-criterion = "mse"  # "mse" / "mae"
+criterion = "mae"  # "mse" / "mae"
 reg_algo = "GradBoost"  # "GradBoost" / "Bagging"
 bagging_method = "gem"  # "bem" / "gem"
-sigma_profile_type = "noiseless_even"  # "noiseless_even" / "uniform"
+sigma_profile_type = "uniform"  # "noiseless_even" / "uniform"
 T = 16
 
-results_path = "Results//2023_05_10//" + str(T) + "_" + criterion + "_" + sigma_profile_type + "//"
+results_path = "Results//2023_05_17//" + str(T) + "_" + criterion + "_" + sigma_profile_type + "//"
 
 # # # Robust vs non-robust MSE
 data_label = {
@@ -36,8 +37,11 @@ for data_type_idx, data_type in enumerate(data_type_vec):
         fname = data_type + "_" + "bagging" + "_" + bagging_method + "_" + str(T) + "_" + criterion + "_" + sigma_profile_type + ".csv"
     elif reg_algo == "GradBoost":
         fname = data_type + "_" + "gbr" + "_" + str(T) + "_" + criterion + "_" + sigma_profile_type + ".csv"
-
-    err_results_df = pd.read_csv(results_path + fname)
+    path_to_file = results_path + fname
+    if os.path.exists(path_to_file):
+        err_results_df = pd.read_csv(path_to_file)
+    else:
+        continue
     snr_db_vec = err_results_df["SNR"]
 
     color = next(ax._get_lines.prop_cycler)['color']

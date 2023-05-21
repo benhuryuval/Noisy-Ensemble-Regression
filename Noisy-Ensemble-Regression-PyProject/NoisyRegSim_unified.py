@@ -28,22 +28,22 @@ plot_flag = False #True #False
 save_results_to_file_flag = True
 results_path = "Results//"
 
-KFold_n_splits = 5  # Number of k-fold x-validation dataset splits
+KFold_n_splits = 4  # Number of k-fold x-validation dataset splits
 
 ensemble_size = [16]  # [16, 64] # [5] # Number of weak-learners
-tree_max_depth = 3  # Maximal depth of decision tree
-min_sample_leaf = 3
+tree_max_depth = 5  # Maximal depth of decision tree
+min_sample_leaf = 1
 
-snr_db_vec = np.linspace(-30, 20, 10)  # [-6]
-n_repeat = 100  # Number of iterations for estimating expected performance
-sigma_profile_type = "noiseless_even"  # uniform / linear / noiseless_fraction / noiseless_even (for GradBoost)
-noisless_scale = 1/20
+snr_db_vec = np.linspace(-25, 20, 10)  # simulated SNRs [dB]
+n_repeat = 75  # Number of iterations for estimating expected performance
+sigma_profile_type = "noiseless_even"  # uniform / single_noisy / noiseless_even (for GradBoost)
+noisy_scale = 20
 
-n_samples = 500  # Size of the (synthetic) dataset  in case of synthetic dataset
+n_samples = 1000  # Size of the (synthetic) dataset  in case of synthetic dataset
 train_noise = 0.01  # Standard deviation of the measurement / training noise in case of synthetic dataset
 
-# data_type_vec = ["kc_house_data"]  # kc_house_data / diabetes / white-wine / sin / exp / make_reg
-data_type_vec = ["sin", "exp", "diabetes", "make_reg", "white-wine", "kc_house_data"]
+data_type_vec = ["make_reg"]  # kc_house_data / diabetes / white-wine / sin / exp / make_reg
+# data_type_vec = ["sin", "exp", "diabetes", "make_reg", "white-wine", "kc_house_data"]
 
 criterion = "mae"  # "mse" / "mae"
 reg_algo = "GradBoost"  # "GradBoost" / "Bagging"
@@ -51,16 +51,18 @@ bagging_method = "gem"  # "bem" / "gem" / "lr"
 gradboost_robust_flag = True
 
 # ===============================================
-example_plots_flag = True
+example_plots_flag = False
 if example_plots_flag:
     ensemble_size = [5]
+    tree_max_depth = 5  # Maximal depth of decision tree
+    min_sample_leaf = 1
     criterion = "mse"  # "mse" / "mae"
     reg_algo = "Bagging"  # "GradBoost" / "Bagging"
     bagging_method = "gem"  # "bem" / "gem" / "lr"
-    snr_db_vec = [0]
-    sigma_profile_type = "noiseless_fraction"
-    noisless_fraction = 0.8
-    data_type_vec = ["sin", "exp"]
+    snr_db_vec = [-6]
+    sigma_profile_type = "single_noisy"  # uniform / single_noisy / noiseless_even
+    data_type_vec = ["sin"]
+    data_type_vec = ["exp"]
 # ===============================================
 
 # Dataset specific params for Gradient-descent and other stuff
@@ -171,30 +173,19 @@ if reg_algo == "GradBoost":
 
                                         # Set noise variance
                                         snr = 10 ** (snr_db / 10)
-                                        sig_var = np.var(y_train*ensemble_size)
-
-                                        # Setting noise covariance matrix
-                                        if _m == 0:
-                                                sigma_profile = sig_var / (snr * ensemble_size[0])  # noise variance
-                                                noise_covariance = np.diag(np.reshape(sigma_profile, (1,)))
-                                        elif sigma_profile_type == "uniform":
-                                                sigma0 = sig_var / (snr * ensemble_size[0])
-                                                noise_covariance = np.diag(sigma0 * np.ones([ensemble_size[0] + 1, ]))
-                                        elif sigma_profile_type == "linear":
-                                                sigma_profile = np.linspace(1, 1/(_m+1), _m+1)
-                                                sigma0 = sig_var / (snr * sigma_profile.sum())
-                                                sigma_profile *= sigma0
-                                                noise_covariance = np.diag(sigma_profile)
-                                        elif sigma_profile_type == "noiseless_fraction":
-                                                sigma0 = sig_var / (snr * (_m+1) * (noisless_fraction + (1-noisless_fraction)/noisless_scale))
-                                                sigma_profile = sigma0 * np.ones([_m+1, ])
-                                                sigma_profile[0:round(noisless_fraction * (_m+1))-1] *= noisless_scale
-                                                noise_covariance = np.diag(sigma_profile)
+                                        sig_var = np.var(y_train)
+                                        if sigma_profile_type == "uniform":
+                                            sigma_sqr = sig_var / snr
+                                            noise_covariance = np.diag(sigma_sqr * np.ones([ensemble_size[_m_idx] + 1, ]))
+                                        elif sigma_profile_type == "single_noisy":
+                                            sigma_sqr = sig_var / (snr * (1 + (noisy_scale-1)/(ensemble_size[_m_idx] + 1)))
+                                            noise_covariance = np.diag(sigma_sqr/noisy_scale * np.ones([ensemble_size[_m_idx] + 1, ]))
+                                            noise_covariance[0, 0] = sigma_sqr
                                         elif sigma_profile_type == "noiseless_even":
-                                                sigma0 = sig_var / (snr * (_m+1) * (noisless_fraction + (1-noisless_fraction)/noisless_scale))
-                                                sigma_profile = sigma0 * np.ones([_m+1, ])
-                                                sigma_profile[0::2] *= noisless_scale
-                                                noise_covariance = np.diag(sigma_profile)
+                                            sigma_sqr = sig_var / ((1 + (noisy_scale-1)/2) * snr)
+                                            sigma_profile = sigma_sqr * np.ones([ensemble_size[_m_idx] + 1, ])
+                                            sigma_profile[1::2] *= noisy_scale
+                                            noise_covariance = np.diag(sigma_profile)
 
                                         # - - - NON-ROBUST / ROBUST GRADIENT BOOSTING - - -
                                         rgb_nr = rGradBoost(X=X_train, y=y_train, max_depth=tree_max_depth,
@@ -220,14 +211,9 @@ if reg_algo == "GradBoost":
                                         for _n in range(0, n_repeat):
                                                 # - - - NON-ROBUST - - -
                                                 pred_nr = rgb_nr.predict(X_test, PredNoiseCov=noise_covariance)
-                                                # err_nr[idx_snr_db, _m_idx, kfold_idx] += np.abs(
-                                                #         np.subtract(y_test[:, 0], pred_nr)).mean()
                                                 err_nr[idx_snr_db, _m_idx, kfold_idx] += aux.calc_error(y_test[:,0], pred_nr, criterion)
-
                                                 # - - - ROBUST - - -
                                                 pred_r = rgb_r.predict(X_test, PredNoiseCov=noise_covariance)
-                                                # err_r[idx_snr_db, _m_idx, kfold_idx] += np.abs(
-                                                #         np.subtract(y_test[:, 0], pred_r)).mean()
                                                 err_r[idx_snr_db, _m_idx, kfold_idx] += aux.calc_error(y_test[:,0], pred_r, criterion)
 
                                         # Expectation of error (over multiple realizations)
@@ -272,7 +258,7 @@ if reg_algo == "GradBoost":
                         print("---------------------------------------------------------------------------\n")
 
                 # Plot error and error gain
-                if True: #plot_flag:
+                if plot_flag:
                     for _m_idx, _m in enumerate(ensemble_size):
                             plt.figure(figsize=(12, 8))
                             plt.plot(snr_db_vec, 10 * np.log10(err_cln[:, _m_idx, :].mean(1)), '-k', label='Clean')
@@ -350,25 +336,21 @@ if reg_algo == "Bagging":
                                         snr = 10 ** (snr_db / 10)
                                         sig_var = np.var(y_train*_m)
 
-                                        # Setting noise covariance matrix
+                                        # Set noise variance
+                                        snr = 10 ** (snr_db / 10)
+                                        sig_var = np.var(y_train)
                                         if sigma_profile_type == "uniform":
-                                                sigma0 = sig_var / (snr * _m)
-                                                noise_covariance = np.diag(sigma0 * np.ones([_m, ]))
-                                        elif sigma_profile_type == "linear":
-                                                sigma_profile = np.linspace(1, 1/_m, _m)
-                                                sigma0 = sig_var / (snr * sigma_profile.sum())
-                                                sigma_profile *= sigma0
-                                                noise_covariance = np.diag(sigma_profile)
-                                        elif sigma_profile_type == "noiseless_fraction":
-                                                sigma0 = (_m * sig_var) / (snr * (noisless_fraction/noisless_scale + (1-noisless_fraction)))
-                                                sigma_profile = sigma0 * np.ones([_m, ])
-                                                sigma_profile[0:round(noisless_fraction * _m)-1] *= noisless_scale
-                                                noise_covariance = np.diag(sigma_profile)
+                                            sigma_sqr = sig_var / snr
+                                            noise_covariance = np.diag(sigma_sqr * np.ones([ensemble_size[_m_idx], ]))
+                                        elif sigma_profile_type == "single_noisy":
+                                            sigma_sqr = sig_var / (snr * (1 + (noisy_scale-1)/ensemble_size[_m_idx]))
+                                            noise_covariance = np.diag(sigma_sqr/noisy_scale * np.ones([ensemble_size[_m_idx], ]))
+                                            noise_covariance[0, 0] = sigma_sqr
                                         elif sigma_profile_type == "noiseless_even":
-                                                sigma0 = (_m * sig_var) / (snr * (noisless_fraction/noisless_scale + (1-noisless_fraction)))
-                                                sigma_profile = sigma0 * np.ones([_m, ])
-                                                sigma_profile[0::2] *= noisless_scale
-                                                noise_covariance = np.diag(sigma_profile)
+                                            sigma_sqr = sig_var / ((1 + (noisy_scale-1)/2) * snr)
+                                            sigma_profile = sigma_sqr * np.ones([ensemble_size[_m_idx], ])
+                                            sigma_profile[1::2] *= noisy_scale
+                                            noise_covariance = np.diag(sigma_profile)
 
                                         # - - - NON-ROBUST / ROBUST BAGGING - - -
                                         noisy_reg = rBaggReg(cln_reg,   noise_covariance, _m, bagging_method,           gd_tol, gd_learn_rate_dict[data_type], gd_decay_rate, bag_regtol_dict[data_type])
@@ -388,7 +370,8 @@ if reg_algo == "Bagging":
                                             # with plt.style.context(['science', 'grid']):
                                             n_repeat_plt = 25
                                             fontsize = 18
-                                            fig, axe = plt.subplots(figsize=(8.4, 8.4))
+                                            fig, axe = plt.subplots(figsize=(1.25*8.4, 1.25*8.4))
+                                            fig.set_label(data_type + "_example")
                                             plt.rcParams.update({'font.size': fontsize})
                                             y_pred = np.zeros([X_test.shape[0], n_repeat_plt])
                                             sort_idxs_test = np.argsort(X_test[:, 0])
@@ -402,7 +385,7 @@ if reg_algo == "Bagging":
                                             plt.plot(X_test[sort_idxs_test,0], pred_cln[sort_idxs_test], linestyle='', marker='o', color='k', label='Test: Noiseless prediction', linewidth=2.0, markersize=6.0)
                                             plt.xlabel('x')
                                             plt.ylabel('y')
-                                            plt.title('Regression with ensemble of $T='+str(_m)+'$: \n$'+str(round(100*(1-noisless_fraction)))+'$% noisy sub-regressors at $SNR='+str(snr_db)+'$[dB]')
+                                            plt.title('Regression ensemble of $T='+str(_m)+'$ at $SNR='+str(snr_db)+'$[dB]')
                                             handles, labels = plt.gca().get_legend_handles_labels()
                                             order = [1, 2, 3, 0]
                                             plt.legend([handles[idx] for idx in order], [labels[idx] for idx in order], loc='upper right')
@@ -413,7 +396,7 @@ if reg_algo == "Bagging":
                                             if data_type=="sin":
                                                 yloc = -2.0
                                             elif data_type=="exp":
-                                                yloc = -0.5
+                                                yloc = 0
                                             plt.text(0, yloc, "MSE (Noiseless): "+"{0:.1f}".format(10*np.log10(mse_cln))+"[dB]" + "\nMSE (Noisy): "+"{0:.1f}".format(10*np.log10(mse_pred))+"[dB]\n"\
                                                             +"MAE (Noiseless): "+"{0:.1f}".format(10*np.log10(mae_cln))+"[dB]" + "\nMAE (Noisy): "+"{0:.1f}".format(10*np.log10(mae_pred))+"[dB]",
                                                      fontsize=fontsize,
@@ -427,11 +410,9 @@ if reg_algo == "Bagging":
                                                 # - - - NON-ROBUST - - -
                                                 pred_nr = noisy_reg.predict(X_test)
                                                 err_nr[idx_snr_db, _m_idx, kfold_idx] += aux.calc_error(y_test, pred_nr, criterion)
-                                                # err_nr[idx_snr_db, _m_idx, kfold_idx] += aux.calc_error(pred_cln, pred_nr, criterion)
                                                 # - - - ROBUST - - -
                                                 pred_r = noisy_rreg.predict(X_test)
                                                 err_r[idx_snr_db, _m_idx, kfold_idx] += aux.calc_error(y_test, pred_r, criterion)
-                                                # err_r[idx_snr_db, _m_idx, kfold_idx] += aux.calc_error(pred_cln, pred_r, criterion)
 
                                         # Expectation of error (over multiple realizations)
                                         err_nr[idx_snr_db, _m_idx, kfold_idx] /= n_repeat
@@ -471,7 +452,7 @@ if reg_algo == "Bagging":
                                                        axis=1)
                                 results_df.to_csv(results_path + data_type + "_bagging_" + bagging_method + "_" + _m.__str__() + "_" + criterion + "_" + sigma_profile_type + ".csv")
 
-                        if True: #plot_flag:
+                        if plot_flag:
                                 # Plot error results
                                 for _m_idx, _m in enumerate(ensemble_size):
                                         plt.figure(figsize=(12, 8))
