@@ -42,11 +42,11 @@ noisy_scale = 20
 n_samples = 1000  # Size of the (synthetic) dataset  in case of synthetic dataset
 train_noise = 0.01  # Standard deviation of the measurement / training noise in case of synthetic dataset
 
-data_type_vec = ["make_reg"]  # kc_house_data / diabetes / white-wine / sin / exp / make_reg
+data_type_vec = ["kc_house_data"]  # kc_house_data / diabetes / white-wine / sin / exp / make_reg
 # data_type_vec = ["sin", "exp", "diabetes", "make_reg", "white-wine", "kc_house_data"]
 
 criterion = "mae"  # "mse" / "mae"
-reg_algo = "GradBoost"  # "GradBoost" / "Bagging"
+reg_algo = "Bagging"  # "GradBoost" / "Bagging"
 bagging_method = "gem"  # "bem" / "gem" / "lr"
 gradboost_robust_flag = True
 
@@ -70,10 +70,10 @@ if reg_algo == "Bagging":
     gd_learn_rate_dict = {
         "sin": 1e-2,
         "exp": 1e-2,
-        "make_reg": 1e-6,
+        "make_reg": 1e-4,
         "diabetes": 1e-4,
         "white-wine": 1e-4,
-        "kc_house_data": 1e-6
+        "kc_house_data": 1e-5
     }
     gd_tol = 1e-2  # or 1e-8
     gd_decay_rate = 0.0  # or 0.2
@@ -151,7 +151,7 @@ if reg_algo == "GradBoost":
                                     plt.plot(X_test[:, 0], y_test[:, 0], 'xk', label='Test')
 
                                 # - - - CLEAN GRADIENT BOOSTING - - -
-                                # # Initiating the tree
+                                # # # Initiating the tree
                                 rgb_cln = rGradBoost(X=X_train, y=y_train, max_depth=tree_max_depth,
                                                         min_sample_leaf=min_sample_leaf,
                                                         TrainNoiseCov=np.zeros([_m + 1, _m + 1]),
@@ -164,7 +164,7 @@ if reg_algo == "GradBoost":
 
                                 # Predicting without noise (for reference)
                                 pred_cln = rgb_cln.predict(X_test, PredNoiseCov=np.zeros([_m + 1, _m + 1]))
-                                # Saving the predictions to the training set
+                                # # Saving the predictions to the training set
                                 err_cln[:, _m_idx, kfold_idx] = np.abs(np.subtract(y_test[:, 0], pred_cln)).mean()
                                 # - - - - - - - - - - - - - - - - -
 

@@ -141,6 +141,7 @@ class rBaggReg:  # Robust Bagging Regressor
                 plt.xlabel('Iteration', fontsize=18)
                 plt.ylabel("Cost", fontsize=18)
                 plt.show(block=False)
+                bb=0
             # # DEBUG END # #
 
         elif self.integration_type == 'robust-bem':
@@ -189,13 +190,14 @@ class rBaggReg:  # Robust Bagging Regressor
             self.weights = weights_evolution[np.argmin(cost_evolution[0:stop_iter])]
 
             # # DEBUG # #
-            if False:
+            if False:  # True:
                 import matplotlib.pyplot as plt
                 fig, ax = plt.figure("Cost evolution", figsize=(8, 6), dpi=300), plt.axes()
                 plt.plot(cost_evolution[0:stop_iter])
                 plt.xlabel('Iteration', fontsize=18)
                 plt.ylabel("Cost", fontsize=18)
                 plt.show(block=False)
+                bb=0
             # # DEBUG END # #
 
         else:

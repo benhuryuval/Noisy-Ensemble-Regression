@@ -35,7 +35,7 @@ def get_dataset(data_type=None, n_samples=100, noise=0.1):
                 dataset_df = pd.read_csv(dataset_link)
                 dataset_df.drop("date", axis=1, inplace=True)
                 X, y = dataset_df.drop(['price', 'id'], axis=1, inplace=False), dataset_df['price']
-                # X, y = X.head(2000), y.head(2000)
+                # X, y = X.head(500), y.head(500)
                 X, y = (X - X.mean()) / X.std(), (y - y.mean()) / y.std()
         elif data_type == 'white-wine':
                 dataset_link = datasets_path + "winequality-white.csv"
@@ -127,7 +127,7 @@ def gradient_descent(gamma_init, grad_fun, cost_fun, max_iter=30000, min_iter=10
     # initializations
     cost_evolution = [None] * max_iter
     gamma_evolution = [None] * max_iter
-    eps = 1e-8  # tolerance value for adagrad learning rate update
+    eps = 1e-15  # tolerance value for adagrad learning rate update
     vec_siz = len(gamma_init.ravel())
     step, i = np.array([np.zeros(vec_siz)]), 0  # initialize gradient-descent step to 0, iteration index in evolution
 
@@ -143,10 +143,9 @@ def gradient_descent(gamma_init, grad_fun, cost_fun, max_iter=30000, min_iter=10
         else:
             # update learning rate and advance according to AdaGrad
             Gt = np.sum(np.concatenate(gamma_evolution[0:i+1]) ** 2, axis=0)
-            learn_rate_upd = np.divide(learn_rate*np.eye(vec_siz), np.sqrt(Gt + eps))
+            learn_rate_upd = np.divide(learn_rate*np.ones(vec_siz), np.sqrt(Gt + eps))
             step = decay_rate * step - learn_rate_upd.dot(grad)
             # step = -learn_rate*grad  # "vanilla" gd step
-
             gamma_evolution[i + 1] = gamma_evolution[i] + step
     # - - - - - - - - - - - - - - - - - - - - - - - - - -
     # LAE plotting for visualization and debug

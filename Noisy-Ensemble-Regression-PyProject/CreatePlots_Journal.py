@@ -6,9 +6,9 @@ import numpy as np
 data_type_vec = ["sin", "exp", "make_reg", "diabetes", "white-wine", "kc_house_data"]
 # data_type_vec = ["sin", "exp", "make_reg", "diabetes", "white-wine"]
 criterion = "mae"  # "mse" / "mae"
-reg_algo = "GradBoost"  # "GradBoost" / "Bagging"
+reg_algo = "Bagging"  # "GradBoost" / "Bagging"
 bagging_method = "gem"  # "bem" / "gem"
-sigma_profile_type = "uniform"  # "noiseless_even" / "uniform"
+sigma_profile_type = "noiseless_even"  # "noiseless_even" / "uniform"
 T = 16
 
 results_path = "Results//2023_05_17//" + str(T) + "_" + criterion + "_" + sigma_profile_type + "//"
