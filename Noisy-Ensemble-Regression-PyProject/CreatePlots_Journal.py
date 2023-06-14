@@ -7,11 +7,11 @@ data_type_vec = ["sin", "exp", "make_reg", "diabetes", "white-wine", "kc_house_d
 # data_type_vec = ["sin", "exp", "make_reg", "diabetes", "white-wine"]
 criterion = "mae"  # "mse" / "mae"
 reg_algo = "Bagging"  # "GradBoost" / "Bagging"
-bagging_method = "gem"  # "bem" / "gem"
-sigma_profile_type = "noiseless_even"  # "noiseless_even" / "uniform"
+bagging_method = "bem"  # "bem" / "gem"
+sigma_profile_type = "uniform"  # "noiseless_even" / "uniform"
 T = 16
 
-results_path = "Results//2023_05_17//" + str(T) + "_" + criterion + "_" + sigma_profile_type + "//"
+results_path = "Results//2023_06_11//" + str(T) + "_" + criterion + "_" + sigma_profile_type + "//"
 
 # # # Robust vs non-robust MSE
 data_label = {
@@ -34,9 +34,9 @@ plt.ylabel(criterion.upper()+' Gain [dB]', fontsize=18)
 
 for data_type_idx, data_type in enumerate(data_type_vec):
     if reg_algo == "Bagging":
-        fname = data_type + "_" + "bagging" + "_" + bagging_method + "_" + str(T) + "_" + criterion + "_" + sigma_profile_type + ".csv"
+        fname = str(T) + "_" + criterion + "_" + sigma_profile_type + "_" + data_type + "_" + "bagging" + "_" + bagging_method + ".csv"
     elif reg_algo == "GradBoost":
-        fname = data_type + "_" + "gbr" + "_" + str(T) + "_" + criterion + "_" + sigma_profile_type + ".csv"
+        fname = str(T) + "_" + criterion + "_" + sigma_profile_type + "_" + data_type + "_" + "gbr" + ".csv"
     path_to_file = results_path + fname
     if os.path.exists(path_to_file):
         err_results_df = pd.read_csv(path_to_file)
@@ -67,17 +67,17 @@ for data_type_idx, data_type in enumerate(data_type_vec):
     # plt.show(block=False)
 fig.savefig(results_path+fig.get_label()+".png")
 
-if True:
+if False:
     fig, ax = plt.figure(criterion.upper() + "_" + reg_algo + "_" + "rGBR_vs_r" + bagging_method.upper() + "_" + sigma_profile_type + "_Gap", figsize=(8, 6), dpi=300), plt.axes()
     plt.xlabel('SNR [dB]', fontsize=18)
     plt.ylabel(criterion.upper()+' Gap [dB]', fontsize=18)
 
     for data_type_idx, data_type in enumerate(data_type_vec):
-        fname_bag = data_type + "_" + "bagging" + "_" + bagging_method + "_" + str(T) + "_" + criterion + "_" + sigma_profile_type + ".csv"
+        fname_bag = str(T) + "_" + criterion + "_" + sigma_profile_type + "_" + data_type + "_" + "bagging" + "_" + bagging_method + ".csv"
         err_results_df_bag = pd.read_csv(results_path + fname_bag)
         snr_db_vec = err_results_df["SNR"]
 
-        fname_gbr = data_type + "_" + "gbr" + "_" + str(T) + "_" + criterion + "_" + sigma_profile_type + ".csv"
+        fname_gbr = str(T) + "_" + criterion + "_" + sigma_profile_type + "_" + data_type + "_" + "gbr" + ".csv"
         err_results_df_gbr = pd.read_csv(results_path + fname_gbr)
 
         color = next(ax._get_lines.prop_cycler)['color']

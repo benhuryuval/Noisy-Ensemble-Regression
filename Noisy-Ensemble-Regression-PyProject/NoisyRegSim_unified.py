@@ -36,18 +36,18 @@ min_sample_leaf = 1
 
 snr_db_vec = np.linspace(-25, 20, 10)  # simulated SNRs [dB]
 n_repeat = 75  # Number of iterations for estimating expected performance
-sigma_profile_type = "noiseless_even"  # uniform / single_noisy / noiseless_even (for GradBoost)
+sigma_profile_type = "uniform"  # uniform / single_noisy / noiseless_even (for GradBoost)
 noisy_scale = 20
 
 n_samples = 1000  # Size of the (synthetic) dataset  in case of synthetic dataset
 train_noise = 0.01  # Standard deviation of the measurement / training noise in case of synthetic dataset
 
-data_type_vec = ["kc_house_data"]  # kc_house_data / diabetes / white-wine / sin / exp / make_reg
-# data_type_vec = ["sin", "exp", "diabetes", "make_reg", "white-wine", "kc_house_data"]
+# data_type_vec = ["kc_house_data"]  # kc_house_data / diabetes / white-wine / sin / exp / make_reg
+data_type_vec = ["sin", "exp", "diabetes", "make_reg", "white-wine", "kc_house_data"]
 
 criterion = "mae"  # "mse" / "mae"
 reg_algo = "Bagging"  # "GradBoost" / "Bagging"
-bagging_method = "gem"  # "bem" / "gem" / "lr"
+bagging_method = "bem"  # "bem" / "gem" / "lr"
 gradboost_robust_flag = True
 
 # ===============================================
@@ -173,7 +173,7 @@ if reg_algo == "GradBoost":
 
                                         # Set noise variance
                                         snr = 10 ** (snr_db / 10)
-                                        sig_var = np.var(y_train)
+                                        sig_var = np.mean(np.abs(y_train)**2)  # np.var(y_train)
                                         if sigma_profile_type == "uniform":
                                             sigma_sqr = sig_var / snr
                                             noise_covariance = np.diag(sigma_sqr * np.ones([ensemble_size[_m_idx] + 1, ]))
@@ -254,7 +254,7 @@ if reg_algo == "GradBoost":
                                                         'GradBoost, Non-Robust': pd.Series(10 * np.log10(err_nr[:, _m_idx, :].mean(1))),
                                                         'GradBoost, Robust': pd.Series(10 * np.log10(err_r[:, _m_idx, :].mean(1)))},
                                                        axis=1)
-                                results_df.to_csv(results_path + data_type + "_gbr_" + _m.__str__() + "_" + criterion + "_" + sigma_profile_type + ".csv")
+                                results_df.to_csv(results_path + _m.__str__() + "_" + criterion + "_" + sigma_profile_type + "_" + data_type + "_gbr" + ".csv")
                         print("---------------------------------------------------------------------------\n")
 
                 # Plot error and error gain
@@ -334,11 +334,7 @@ if reg_algo == "Bagging":
 
                                         # Set noise variance
                                         snr = 10 ** (snr_db / 10)
-                                        sig_var = np.var(y_train*_m)
-
-                                        # Set noise variance
-                                        snr = 10 ** (snr_db / 10)
-                                        sig_var = np.var(y_train)
+                                        sig_var = np.mean(np.abs(y_train)**2)  # np.var(y_train)
                                         if sigma_profile_type == "uniform":
                                             sigma_sqr = sig_var / snr
                                             noise_covariance = np.diag(sigma_sqr * np.ones([ensemble_size[_m_idx], ]))
@@ -450,7 +446,7 @@ if reg_algo == "Bagging":
                                                         'Bagging, Non-Robust': pd.Series(10*np.log10(err_nr[:, _m_idx, :].mean(1))),
                                                         'Bagging, Robust': pd.Series(10*np.log10(err_r[:, _m_idx, :].mean(1)))},
                                                        axis=1)
-                                results_df.to_csv(results_path + data_type + "_bagging_" + bagging_method + "_" + _m.__str__() + "_" + criterion + "_" + sigma_profile_type + ".csv")
+                                results_df.to_csv(results_path + _m.__str__() + "_" + criterion + "_" + sigma_profile_type + "_" + data_type + "_bagging_" + bagging_method + ".csv")
 
                         if plot_flag:
                                 # Plot error results
