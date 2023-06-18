@@ -6,12 +6,12 @@ import numpy as np
 data_type_vec = ["sin", "exp", "make_reg", "diabetes", "white-wine", "kc_house_data"]
 # data_type_vec = ["sin", "exp", "make_reg", "diabetes", "white-wine"]
 criterion = "mae"  # "mse" / "mae"
-reg_algo = "Bagging"  # "GradBoost" / "Bagging"
+reg_algo = "GradBoost"  # "GradBoost" / "Bagging"
 bagging_method = "bem"  # "bem" / "gem"
-sigma_profile_type = "uniform"  # "noiseless_even" / "uniform"
+sigma_profile_type = "noiseless_even"  # "noiseless_even" / "uniform"
 T = 16
 
-results_path = "Results//2023_06_11//" + str(T) + "_" + criterion + "_" + sigma_profile_type + "//"
+results_path = "Results//2023_06_14//" + str(T) + "_" + criterion + "_" + sigma_profile_type + "//"
 
 # # # Robust vs non-robust MSE
 data_label = {

@@ -78,23 +78,25 @@ def gradient_descent_scalar(gamma_init, grad_fun, cost_fun, max_iter=30000, min_
         # initializations
         cost_evolution = [np.array([[0.0]])] * max_iter
         gamma_evolution = [np.array([[0.0]])] * max_iter
+        grad_evolution = [np.array([[0.0]])] * max_iter
         eps = 1e-15  # tolerance value for adagrad learning rate update
         step, i = np.array([[0.0]]), 0  # initialize gradient-descent step to 0, iteration index in evolution
 
         # perform remaining iterations of gradient-descent
         gamma_evolution[0] = gamma_init
+        Gt = 0  # gradient accumulator for AdaGrad normalization
         for i in range(0, max_iter-1):
             # calculate grad and update cost function
-            grad, cost_evolution[i] = grad_fun(gamma_evolution[i]), cost_fun(gamma_evolution[i])
+            grad_evolution[i], cost_evolution[i] = grad_fun(gamma_evolution[i]), cost_fun(gamma_evolution[i])
 
             # check convergence
             if i > max(min_iter, 0) and np.abs(cost_evolution[i]-cost_evolution[i-1]) <= tol*np.abs(np.mean(cost_evolution[i-1:i+1])):
                 break
             else:
                 # update learning rate and advance according to AdaGrad
-                Gt = np.sum(np.concatenate(gamma_evolution[0:i+1])**2)
+                Gt = Gt + grad_evolution[i]**2  # np.sum(np.concatenate(grad_evolution[0:i+1]) ** 2)
                 learn_rate_upd = np.divide(learn_rate, np.sqrt(Gt + eps))
-                step = step.dot(decay_rate) - grad.dot(learn_rate_upd)
+                step = step.dot(decay_rate) - np.dot(learn_rate_upd, grad_evolution[i])
                 # step = -grad.dot(learn_rate)
                 gamma_evolution[i+1] = gamma_evolution[i] + step
         # - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -127,24 +129,26 @@ def gradient_descent(gamma_init, grad_fun, cost_fun, max_iter=30000, min_iter=10
     # initializations
     cost_evolution = [None] * max_iter
     gamma_evolution = [None] * max_iter
+    grad_evolution = [None] * max_iter
     eps = 1e-15  # tolerance value for adagrad learning rate update
     vec_siz = len(gamma_init.ravel())
     step, i = np.array([np.zeros(vec_siz)]), 0  # initialize gradient-descent step to 0, iteration index in evolution
 
     # perform remaining iterations of gradient-descent
     gamma_evolution[0] = gamma_init
+    Gt = 0  # gradient accumulator for AdaGrad normalization
     for i in range(0, max_iter - 1):
         # calculate grad and update cost function
-        grad, cost_evolution[i] = grad_fun(gamma_evolution[i]), cost_fun(gamma_evolution[i])
+        grad_evolution[i], cost_evolution[i] = grad_fun(gamma_evolution[i]), cost_fun(gamma_evolution[i])
 
         # check convergence
         if i > max(min_iter, 0) and np.abs(cost_evolution[i] - cost_evolution[i-1]) <= tol:
             break
         else:
             # update learning rate and advance according to AdaGrad
-            Gt = np.sum(np.concatenate(gamma_evolution[0:i+1]) ** 2, axis=0)
+            Gt = Gt + grad_evolution[i]**2  # np.sum(np.concatenate(grad_evolution[0:i+1]) ** 2)
             learn_rate_upd = np.divide(learn_rate*np.ones(vec_siz), np.sqrt(Gt + eps))
-            step = decay_rate * step - learn_rate_upd.dot(grad)
+            step = decay_rate * step - np.dot(learn_rate_upd, grad_evolution[i])
             # step = -learn_rate*grad  # "vanilla" gd step
             gamma_evolution[i + 1] = gamma_evolution[i] + step
     # - - - - - - - - - - - - - - - - - - - - - - - - - -
