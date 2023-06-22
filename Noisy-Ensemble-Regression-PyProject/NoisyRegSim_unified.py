@@ -34,9 +34,9 @@ ensemble_size = [16]  # [16, 64] # [5] # Number of weak-learners
 tree_max_depth = 5  # Maximal depth of decision tree
 min_sample_leaf = 1
 
-snr_db_vec = np.linspace(-30, 10, 15)  # simulated SNRs [dB]
+snr_db_vec = np.linspace(-25, 25, 10)  # simulated SNRs [dB]
 n_repeat = 75  # Number of iterations for estimating expected performance
-sigma_profile_type = "noiseless_even"  # uniform / single_noisy / noiseless_even (for GradBoost)
+sigma_profile_type = "uniform"  # uniform / single_noisy / noiseless_even (for GradBoost)
 noisy_scale = 20
 
 n_samples = 1000  # Size of the (synthetic) dataset  in case of synthetic dataset
@@ -44,10 +44,10 @@ train_noise = 0.01  # Standard deviation of the measurement / training noise in 
 
 # data_type_vec = ["kc_house_data"]  # kc_house_data / diabetes / white-wine / sin / exp / make_reg
 data_type_vec = ["sin", "exp", "diabetes", "make_reg", "white-wine", "kc_house_data"]
-# data_type_vec = ["kc_house_data"]
+data_type_vec = ["sin", "exp", "diabetes", "make_reg"]
 
 criterion = "mse"  # "mse" / "mae"
-reg_algo = "GradBoost"  # "GradBoost" / "Bagging"
+reg_algo = "Bagging"  # "GradBoost" / "Bagging"
 bagging_method = "gem"  # "bem" / "gem" / "lr"
 gradboost_robust_flag = True
 
@@ -74,7 +74,7 @@ if reg_algo == "Bagging":
         "make_reg": 1e-4,
         "diabetes": 1e-4,
         "white-wine": 1e-4,
-        "kc_house_data": 1e-6
+        "kc_house_data": 1e-4
     }
     gd_tol = 1e-2  #
     gd_decay_rate = 0.0  #
@@ -90,9 +90,9 @@ if reg_algo == "Bagging":
 
 elif reg_algo == "GradBoost":
     gd_learn_rate_dict = {  # learning rate for grad-dec per dataset: MAE, GradBoost - NonRobust
-        "sin": 1e-1,
-        "exp": 1e-1,
-        "make_reg": 1e-1,
+        "sin": 1e-3,
+        "exp": 1e-3,
+        "make_reg": 1e-3,
         "diabetes": 1e-4,
         "white-wine": 25e-1,
         "kc_house_data": 1e-2
@@ -101,7 +101,7 @@ elif reg_algo == "GradBoost":
         "sin": 1e-3,
         "exp": 1e-3,
         "make_reg": 1e-3,
-        "diabetes": 1e-5,
+        "diabetes": 1e-4,
         "white-wine": 1e-3,
         "kc_house_data": 1e-3
     }
@@ -166,7 +166,8 @@ if reg_algo == "GradBoost":
                                 # Predicting without noise (for reference)
                                 pred_cln = rgb_cln.predict(X_test, PredNoiseCov=np.zeros([_m + 1, _m + 1]))
                                 # # Saving the predictions to the training set
-                                err_cln[:, _m_idx, kfold_idx] = np.abs(np.subtract(y_test[:, 0], pred_cln)).mean()
+                                # err_cln[:, _m_idx, kfold_idx] = np.abs(np.subtract(y_test[:, 0], pred_cln)).mean()
+                                err_cln[:, _m_idx, kfold_idx] = aux.calc_error(y_test[:, 0], pred_cln, criterion)
                                 # - - - - - - - - - - - - - - - - -
 
                                 for idx_snr_db, snr_db in enumerate(snr_db_vec):

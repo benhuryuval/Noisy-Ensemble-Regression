@@ -35,7 +35,7 @@ def get_dataset(data_type=None, n_samples=100, noise=0.1):
                 dataset_df = pd.read_csv(dataset_link)
                 dataset_df.drop("date", axis=1, inplace=True)
                 X, y = dataset_df.drop(['price', 'id'], axis=1, inplace=False), dataset_df['price']
-                # X, y = X.head(500), y.head(500)
+                X, y = X.head(1000), y.head(1000)
                 X, y = (X - X.mean()) / X.std(), (y - y.mean()) / y.std()
         elif data_type == 'white-wine':
                 dataset_link = datasets_path + "winequality-white.csv"
