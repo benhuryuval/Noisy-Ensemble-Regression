@@ -57,8 +57,9 @@ if True:
     for _m in _m_iterations:  # iterate number of trees
 
         # Setting noise covariance matrix
-        sigma_profile = 100 * np.ones([_m + 1, ])
-        sigma_profile[0:1] = 0.1
+        sigma_profile = np.ones([_m + 1, ]) / np.maximum(_m, 1)
+        sigma_profile[0:1] *= 0.01
+        sigma_profile[1:] *= 100
         noise_covariance = np.diag(sigma_profile)
 
         mse = 0
