@@ -6,14 +6,14 @@ import numpy as np
 data_type_vec = ["sin", "exp", "make_reg", "diabetes", "white-wine", "kc_house_data"]
 # data_type_vec = ["sin", "exp", "make_reg"]
 criterion = "mae"  # "mse" / "mae"
-reg_algo = "GradBoost"  # "GradBoost" / "Bagging"
+reg_algo = "Bagging"  # "GradBoost" / "Bagging"
 bagging_method = "gem"  # "bem" / "gem"
 sigma_profile_type = "noiseless_even"  # "noiseless_even" / "uniform"
 T = 16
 
-results_path = "Results//2023_06_18//" + str(T) + "_" + criterion + "_" + sigma_profile_type + "//"
+results_path = "Results//2023_09_20//" + str(T) + "_" + criterion + "_" + sigma_profile_type + "//"
 
-# # # Robust vs non-robust MSE
+# # # # # # Robust vs non-robust MSE
 data_label = {
     "sin": "Sine",
     "exp": "Exp",
@@ -67,6 +67,7 @@ for data_type_idx, data_type in enumerate(data_type_vec):
     # plt.show(block=False)
 fig.savefig(results_path+fig.get_label()+".png")
 
+# # # # # #
 if False:
     fig, ax = plt.figure(criterion.upper() + "_" + reg_algo + "_" + "rGBR_vs_r" + bagging_method.upper() + "_" + sigma_profile_type + "_Gap", figsize=(8, 6), dpi=300), plt.axes()
     plt.xlabel('SNR [dB]', fontsize=18)
@@ -75,14 +76,14 @@ if False:
     for data_type_idx, data_type in enumerate(data_type_vec):
         fname_bag = str(T) + "_" + criterion + "_" + sigma_profile_type + "_" + data_type + "_" + "bagging" + "_" + bagging_method + ".csv"
         err_results_df_bag = pd.read_csv(results_path + fname_bag)
-        snr_db_vec = err_results_df["SNR"]
+        snr_db_vec = err_results_df_bag["SNR"]
 
         fname_gbr = str(T) + "_" + criterion + "_" + sigma_profile_type + "_" + data_type + "_" + "gbr" + ".csv"
         err_results_df_gbr = pd.read_csv(results_path + fname_gbr)
 
         color = next(ax._get_lines.prop_cycler)['color']
         plt.plot(snr_db_vec,
-                 err_results_df_bag["Bagging"+', Robust'] - err_results_df_gbr["GradBoost"+', Robust'],
+                 err_results_df_bag["Bagging"+', Non-Robust'] - err_results_df_gbr["GradBoost"+', Non-Robust'],
                  color=color, label=data_label[data_type], linestyle='', marker='o', markersize=2*(len(data_type_vec)-data_type_idx))
         plt.legend(fontsize=12)
         plt.xticks(fontsize=16)
@@ -90,6 +91,43 @@ if False:
         plt.show(block=False)
 
     # fig.savefig(results_path+fig.get_label()+".png")
+
+# # # # # # Plot bounds for MAE, Bagging w\ normalized weights
+if criterion.upper() == "MAE" and reg_algo == "Bagging":
+    figname = criterion.upper() + "_" + reg_algo + "_" + bagging_method.upper() + "_" + sigma_profile_type + "_Bounds"
+    fig, ax = plt.figure(figname, figsize=(8, 6), dpi=300), plt.axes()
+    plt.xlabel("SNR [dB]", fontsize=18)
+    plt.ylabel("NMAE [dB]", fontsize=18)
+
+    for data_type_idx, data_type in enumerate(data_type_vec):
+        if reg_algo == "Bagging":
+            fname = str(T) + "_" + criterion + "_" + sigma_profile_type + "_" + data_type + "_" + "bagging" + "_" + bagging_method + ".csv"
+        path_to_file = results_path + fname
+        if os.path.exists(path_to_file):
+            err_results_df = pd.read_csv(path_to_file)
+        else:
+            continue
+        snr_db_vec = err_results_df["SNR"]
+
+        scaler = err_results_df[reg_algo+", Robust"].array[-1]
+        color = next(ax._get_lines.prop_cycler)['color']
+        plt.plot(snr_db_vec, err_results_df['Lower bound, Robust']-scaler, color=color, label=data_label[data_type], linestyle='--')
+        plt.plot(snr_db_vec, err_results_df['Upper bound, Robust']-scaler, color=color, label=data_label[data_type], linestyle='-')
+        plt.plot(snr_db_vec, err_results_df[reg_algo + ", Robust"]-scaler, color=color, label=data_label[data_type], linestyle=':')
+
+        plt.xticks(fontsize=16)
+        plt.yticks(fontsize=16)
+        plt.show(block=False)
+        plt.legend(fontsize=12, ncol=2)
+
+    # change legend order
+    handles, labels = plt.gca().get_legend_handles_labels()  # get handles and labels
+    idxs = np.linspace(0, 3*(len(data_type_vec)-1), len(data_type_vec), dtype=np.int32)
+    order = 1+idxs  #np.concatenate((idxs, 1+idxs))  # specify order of items in legend
+    plt.legend([handles[idx] for idx in order], [labels[idx] for idx in order], fontsize=12, ncol=1)  # add legend to plot
+
+    fig.savefig(results_path+fig.get_label()+".png")
+
 
 # # # # # # # # # # # # # # # # # # # # #
 

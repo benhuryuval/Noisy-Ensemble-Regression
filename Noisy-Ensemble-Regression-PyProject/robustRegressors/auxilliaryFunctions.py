@@ -29,7 +29,7 @@ def generate(data_type=None, n_samples=100, noise=0.0, n_repeat=1):
 
 def get_dataset(data_type=None, n_samples=100, noise=0.1):
         # datasets_path = "..//Datasets//"
-        datasets_path = "C://Users//Yuval//Google Drive//PhD//RegressionPaper//Code//Noisy-Ensemble-Regression//Datasets//"
+        datasets_path = "C://Users//Yuval//Documents//GitHub//Noisy-Ensemble-Regression//Datasets//"
         if data_type == 'kc_house_data':
                 dataset_link = datasets_path + "kc_house_data.csv"
                 dataset_df = pd.read_csv(dataset_link)
@@ -146,10 +146,13 @@ def gradient_descent(gamma_init, grad_fun, cost_fun, max_iter=30000, min_iter=10
             break
         else:
             # update learning rate and advance according to AdaGrad
-            Gt = Gt + grad_evolution[i]**2  # np.sum(np.concatenate(grad_evolution[0:i+1]) ** 2)
-            learn_rate_upd = np.divide(learn_rate*np.ones(vec_siz), np.sqrt(Gt + eps))
-            step = decay_rate * step - np.dot(learn_rate_upd, grad_evolution[i])
-            # step = -learn_rate*grad  # "vanilla" gd step
+            # Gt = Gt + grad_evolution[i]**2  # np.sum(np.concatenate(grad_evolution[0:i+1]) ** 2)
+            # learn_rate_upd = np.divide(learn_rate*np.ones(vec_siz), np.sqrt(Gt + eps))
+            # learn_rate_upd = learn_rate * 1 / np.sqrt(Gt + eps)
+            # step = decay_rate * step - np.dot(learn_rate_upd, grad_evolution[i])
+            # step = decay_rate * step - learn_rate_upd * grad_evolution[i]
+            # "vanilla" gd step
+            step = - learn_rate * grad_evolution[i]
             gamma_evolution[i + 1] = gamma_evolution[i] + step
     # - - - - - - - - - - - - - - - - - - - - - - - - - -
     # LAE plotting for visualization and debug

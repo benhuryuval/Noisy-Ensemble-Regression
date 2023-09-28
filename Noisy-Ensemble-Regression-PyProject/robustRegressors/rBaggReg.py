@@ -161,17 +161,15 @@ class rBaggReg:  # Robust Bagging Regressor
             def grad_rgem_mae(alpha, noise_cov, base_prediction, y):
                 mu = alpha.dot(base_prediction) - y
                 sigma = np.sqrt(alpha.dot(noise_cov.dot(alpha.T)))
+                rho = mu / sigma
 
                 mu_tag = base_prediction
                 sig_tag = (noise_cov.dot(alpha.T)) / sigma
-                mu_ovr_sig_tag = (base_prediction*sigma - mu*sig_tag) / (sigma**2)
-                b_tag = -1 * np.exp(-0.5 * (mu/sigma)**2) * (mu/sigma) * mu_ovr_sig_tag
-                d_tag = 2*sp.stats.norm.pdf(-mu/sigma) * mu_ovr_sig_tag
+                rho_tag = (base_prediction*sigma - mu*sig_tag) / (sigma**2)
 
-                grad = np.sqrt(2/np.pi)*sig_tag*np.exp(-0.5 * (mu/sigma)**2) +  \
-                    np.sqrt(2 / np.pi) * sigma * b_tag +                        \
-                    mu_tag * (1 - 2*sp.stats.norm.cdf(-mu/sigma)) +             \
-                    mu*d_tag
+                grad = np.sqrt(2/np.pi) * np.exp(-0.5 * rho**2) * (sig_tag - sigma*rho*rho_tag) +  \
+                    mu_tag * (1 - 2*sp.stats.norm.cdf(-rho)) +             \
+                    2 * mu * rho_tag * sp.stats.norm.pdf(-rho)
                 return grad.mean(1)
 
             def cost_rgem_mae(alpha, noise_cov, base_prediction, y):
@@ -228,3 +226,60 @@ class rBaggReg:  # Robust Bagging Regressor
 
         # Return integrated noisy predictions
         return weights.dot(base_prediction + pred_noise.T).T
+
+    def calc_mae_lb(self, X, y, weights=None):
+        # Train bagging regressor, if needed
+        if (self.weights == None).any():
+            self.bagging_regressor.fit(X, y)
+
+        # Obtain base predictions from ensemble
+        base_prediction = np.zeros([self.n_base_estimators, len(X)])
+        for k, base_estimator in enumerate(self.bagging_regressor.estimators_):
+            base_prediction[k, :] = base_estimator.predict(X)
+        # Calculate lower bound
+        mae_cln = auxfun.calc_error(weights.dot(base_prediction).T, y, 'mae')  # clean mae with non-robust weights
+
+        mu = np.abs(base_prediction.transpose() - y)
+        mu_max = np.max(mu, axis=1)
+
+        c_mat = self.noise_covariance
+        if auxfun.is_psd_mat(c_mat):
+            ones_mat = np.ones([self.n_base_estimators, self.n_base_estimators])
+            w, v = sp.linalg.eig(c_mat, ones_mat)
+            sigma_bar = np.sqrt(np.nanmin(w.real))
+            diff = np.sqrt(2 / np.pi) * sigma_bar - mu_max
+            diff_ind = (np.sign(diff) + 1)/2
+        else:
+            self.mae_lb = None
+            print('Invalid covariance matrix.')
+            raise ValueError('Invalid covariance matrix')
+
+        self.mae_lb = mae_cln + np.nanmean(diff * np.exp(-1/2 * diff_ind * (mu_max/sigma_bar)**2))
+        return self.mae_lb
+
+
+    def calc_mae_ub(self, X, y, weights=None, normFlag=False):
+        # Obtain coefficients
+        err_mat_rglrz = self.noise_covariance  # + self.bag_tol * np.diag(np.ones(self.n_base_estimators, ))
+        if auxfun.is_psd_mat(err_mat_rglrz):
+            w, v = sp.linalg.eig(err_mat_rglrz)  # eigenvectors of cov[\hat{f}-y]
+            min_w = np.nanmin(w.real)
+            min_w_idxs = [index for index, element in enumerate(w) if min_w == element]
+            v_min = v[:, min_w_idxs].mean(axis=1)
+            if (self.weights == None).any():
+                weights = v_min.T / v_min.sum()
+        else:
+            print("Error: Invalid covariance matrix.")
+            raise ValueError('Invalid covariance matrix')
+
+        # Obtain base predictions from ensemble
+        base_prediction = np.zeros([self.n_base_estimators, len(X)])
+        for k, base_estimator in enumerate(self.bagging_regressor.estimators_):
+            base_prediction[k, :] = base_estimator.predict(X)
+        # Calculate lower bound
+        mae_cln = auxfun.calc_error(weights.dot(base_prediction).T, y, 'mae')  # clean mae with non-robust weights
+        if normFlag:
+            self.mae_ub = mae_cln + np.sqrt(2 / np.pi * min_w)
+        else:
+            self.mae_ub = mae_cln + np.sqrt(2 / np.pi * self.noise_covariance.sum())
+        return self.mae_ub

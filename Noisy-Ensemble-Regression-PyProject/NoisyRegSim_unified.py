@@ -36,7 +36,7 @@ min_sample_leaf = 1
 
 snr_db_vec = np.linspace(-25, 25, 10)  # simulated SNRs [dB]
 n_repeat = 75  # Number of iterations for estimating expected performance
-sigma_profile_type = "uniform"  # uniform / single_noisy / noiseless_even (for GradBoost)
+sigma_profile_type = "noiseless_even"  # uniform / single_noisy / noiseless_even (for GradBoost)
 noisy_scale = 20
 
 n_samples = 1000  # Size of the (synthetic) dataset  in case of synthetic dataset
@@ -44,9 +44,9 @@ train_noise = 0.01  # Standard deviation of the measurement / training noise in 
 
 # data_type_vec = ["kc_house_data"]  # kc_house_data / diabetes / white-wine / sin / exp / make_reg
 data_type_vec = ["sin", "exp", "diabetes", "make_reg", "white-wine", "kc_house_data"]
-data_type_vec = ["sin", "exp", "diabetes", "make_reg"]
+# data_type_vec = ["sin", "exp"]
 
-criterion = "mse"  # "mse" / "mae"
+criterion = "mae"  # "mse" / "mae"
 reg_algo = "Bagging"  # "GradBoost" / "Bagging"
 bagging_method = "gem"  # "bem" / "gem" / "lr"
 gradboost_robust_flag = True
@@ -302,6 +302,8 @@ if reg_algo == "Bagging":
 
                         err_cln = np.zeros((len(snr_db_vec), len(ensemble_size), KFold_n_splits))
                         err_nr, err_r = np.zeros_like(err_cln), np.zeros_like(err_cln)
+                        if criterion == "mae":
+                            lb, ub = np.ones((len(snr_db_vec), KFold_n_splits)), np.ones((len(snr_db_vec), KFold_n_splits))
 
                         kfold_idx = -1
                         for train_index, test_index in kf.split(X):
@@ -319,7 +321,7 @@ if reg_algo == "Bagging":
                                 elif criterion == "mae":
                                         cln_reg = sklearn.ensemble.BaggingRegressor(
                                                 sk.tree.DecisionTreeRegressor(max_depth=tree_max_depth,
-                                                                              criterion="absolute_error"),
+                                                                              criterion="mae"),
                                                 n_estimators=_m, random_state=rng)
 
                                 # Fitting on training data
@@ -363,6 +365,11 @@ if reg_algo == "Bagging":
                                                 noisy_rreg.fit_mae(X_train, y_train[:, 0])
                                         # - - - - - - - - - - - - - - - - -
 
+                                        # - - - Calculate lower/upper bounds - - -
+                                        if criterion == "mae":
+                                            lb[idx_snr_db, kfold_idx] = noisy_reg.calc_mae_lb(X_train, y_train, weights=noisy_reg.weights)
+                                            ub[idx_snr_db, kfold_idx] = noisy_reg.calc_mae_ub(X_train, y_train, weights=noisy_reg.weights)
+
                                         # Plotting all the points
                                         if X_train.shape[1] == 1 and example_plots_flag:
                                             # with plt.style.context(['science', 'grid']):
@@ -394,9 +401,9 @@ if reg_algo == "Bagging":
                                             if data_type=="sin":
                                                 yloc = -2.0
                                             elif data_type=="exp":
-                                                yloc = 0
-                                            plt.text(0, yloc, "MSE (Noiseless): "+"{0:.1f}".format(10*np.log10(mse_cln))+"[dB]" + "\nMSE (Noisy): "+"{0:.1f}".format(10*np.log10(mse_pred))+"[dB]\n"\
-                                                            +"MAE (Noiseless): "+"{0:.1f}".format(10*np.log10(mae_cln))+"[dB]" + "\nMAE (Noisy): "+"{0:.1f}".format(10*np.log10(mae_pred))+"[dB]",
+                                                yloc = -0.5
+                                            plt.text(0, yloc, "MSE (Noiseless): "+"{0:.2f}".format(mse_cln) + "\nMSE (Noisy): "+"{0:.2f}".format(mse_pred)+"\n"\
+                                                            +"MAE (Noiseless): "+"{0:.2f}".format(mae_cln) + "\nMAE (Noisy): "+"{0:.2f}".format(mae_pred)+"",
                                                      fontsize=fontsize,
                                                      bbox=dict(facecolor='green', alpha=0.1))
                                             plt.show(block=False)
@@ -421,18 +428,26 @@ if reg_algo == "Bagging":
                                               "{0:0.3f}".format(10 * np.log10(err_nr[idx_snr_db, _m_idx, kfold_idx])) + ", " +
                                               "{0:0.3f}".format(10 * np.log10(err_r[idx_snr_db, _m_idx, kfold_idx])) + ")"
                                               )
+                                        if criterion == "mae":
+                                            print("Bounds (MAE) [dB], (Lower, Upper) = (" +
+                                                  "{0:0.3f}".format(10 * np.log10(np.max([lb[idx_snr_db, kfold_idx], 1e-10]))) + ", " +
+                                                  "{0:0.3f}".format(10 * np.log10(np.max([ub[idx_snr_db, kfold_idx], 1e-10]))) + ")"
+                                              )
 
                                         # Sample presentation of data
-                                        if X_train.shape[1] == 1 and plot_flag:
-                                                fig_dataset = plt.figure(figsize=(12, 8))
+                                        if X_train.shape[1] == 1 and plot_flag and False:
+                                                fig = plt.figure(figsize=(12, 8))
+                                                fig.set_label(data_type + "_example")
+                                                fontsize = 18
+                                                plt.rcParams.update({'font.size': fontsize})
                                                 plt.plot(X_train[:, 0], y_train, 'x', label="Train")
                                                 plt.plot(X_test[:, 0], pred_cln, 'o',
                                                          label="Clean, " + "err=" + "{:.4f}".format(
                                                                  err_cln[0, _m_idx, kfold_idx]))
-                                                plt.plot(X_test[:, 0], pred_r, 'o',
+                                                plt.plot(X_test[:, 0], np.abs(y_test.ravel()-pred_r)**2, 'o',
                                                          label="Robust, " + "err=" + "{:.4f}".format(
                                                                  err_r[idx_snr_db, _m_idx, kfold_idx]))
-                                                plt.plot(X_test[:, 0], pred_nr, 'd',
+                                                plt.plot(X_test[:, 0], np.abs(y_test.ravel()-pred_nr)**2, 'd',
                                                          label="Non-Robust, " + "err=" + "{:.4f}".format(
                                                                  err_nr[idx_snr_db, _m_idx, kfold_idx]))
                                                 plt.title("_m=" + "{:d}".format(_m) + ", SNR=" + "{:.2f}".format(snr_db))
@@ -440,14 +455,16 @@ if reg_algo == "Bagging":
                                                 plt.ylabel('y')
                                                 plt.legend()
                                                 plt.show(block=False)
-                                                plt.close(fig_dataset)
+                                                plt.close(fig)
 
                         if save_results_to_file_flag:
                                 results_df = pd.concat({'SNR': pd.Series(snr_db_vec),
                                                         'Bagging, Noiseless': pd.Series(10*np.log10(err_cln[:, _m_idx, :].mean(1))),
                                                         'Bagging, Non-Robust': pd.Series(10*np.log10(err_nr[:, _m_idx, :].mean(1))),
-                                                        'Bagging, Robust': pd.Series(10*np.log10(err_r[:, _m_idx, :].mean(1)))},
-                                                       axis=1)
+                                                        'Bagging, Robust': pd.Series(10*np.log10(err_r[:, _m_idx, :].mean(1))),
+                                                        'Lower bound, Robust': pd.Series(10 * np.log10(lb.mean(1))),
+                                                        'Upper bound, Robust': pd.Series(10 * np.log10(ub.mean(1)))},
+                                                        axis=1)
                                 results_df.to_csv(results_path + _m.__str__() + "_" + criterion + "_" + sigma_profile_type + "_" + data_type + "_bagging_" + bagging_method + ".csv")
 
                         if plot_flag:
@@ -474,5 +491,18 @@ if reg_algo == "Bagging":
                                         plt.xlabel('SNR [dB]')
                                         plt.ylabel(criterion.upper()+' Gain [dB]')
                                         plt.show(block=False)
+                                # Plot error bounds for mae
+                                if criterion == "mae":
+                                    for _m_idx, _m in enumerate(ensemble_size):
+                                        plt.figure(figsize=(12, 8))
+                                        plt.plot(snr_db_vec, 10 * np.log10(ub.mean(1)), '--g', label='Upper bound')
+                                        plt.plot(snr_db_vec, 10 * np.log10(lb.mean(1)), '-g', label='Lower bound')
+                                        plt.title("dataset: " + str(data_type) + ", T=" + str(
+                                                _m) + " regressors\nnoise=" + sigma_profile_type)
+                                        plt.xlabel('SNR [dB]')
+                                        plt.ylabel(criterion.upper()+' [dB]')
+                                        plt.legend()
+                                        plt.show(block=False)
+
                         print("---------------------------------------------------------------------------\n")
 
