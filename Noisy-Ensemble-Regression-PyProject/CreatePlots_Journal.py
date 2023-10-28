@@ -11,7 +11,7 @@ bagging_method = "gem"  # "bem" / "gem"
 sigma_profile_type = "noiseless_even"  # "noiseless_even" / "uniform"
 T = 16
 
-results_path = "Results//2023_09_20//" + str(T) + "_" + criterion + "_" + sigma_profile_type + "//"
+results_path = "Results//2023_10_28//" + str(T) + "_" + criterion + "_" + sigma_profile_type + "//"
 
 # # # # # # Robust vs non-robust MSE
 data_label = {
@@ -109,10 +109,12 @@ if criterion.upper() == "MAE" and reg_algo == "Bagging":
             continue
         snr_db_vec = err_results_df["SNR"]
 
-        scaler = err_results_df[reg_algo+", Robust"].array[-1]
+        # scaler = err_results_df[reg_algo+", Robust"].array[-1]
+        scaler = err_results_df["y Train Avg"].array[0]
         color = next(ax._get_lines.prop_cycler)['color']
         plt.plot(snr_db_vec, err_results_df['Lower bound, Robust']-scaler, color=color, label=data_label[data_type], linestyle='--')
-        plt.plot(snr_db_vec, err_results_df['Upper bound, Robust']-scaler, color=color, label=data_label[data_type], linestyle='-')
+        plt.plot(snr_db_vec, err_results_df['Upper bound (BEM), Robust']-scaler, color=color, label=data_label[data_type], linestyle='-', marker='o')
+        plt.plot(snr_db_vec, err_results_df['Upper bound (GEM), Robust']-scaler, color=color, label=data_label[data_type], linestyle='-', marker='x')
         plt.plot(snr_db_vec, err_results_df[reg_algo + ", Robust"]-scaler, color=color, label=data_label[data_type], linestyle=':')
 
         plt.xticks(fontsize=16)

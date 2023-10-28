@@ -186,9 +186,10 @@ class rBaggReg:  # Robust Bagging Regressor
                                                                                max_iter=5000, min_iter=500,
                                                                                tol=self.gd_tol, learn_rate=self.learn_rate, decay_rate=self.decay_rate)
             self.weights = weights_evolution[np.argmin(cost_evolution[0:stop_iter])]
+            self.weights = self.weights / np.sum(self.weights)  # TODO: this is just to debug lower bound
 
             # # DEBUG # #
-            if False:  # True:
+            if False:  # False True:
                 import matplotlib.pyplot as plt
                 fig, ax = plt.figure("Cost evolution", figsize=(8, 6), dpi=300), plt.axes()
                 plt.plot(cost_evolution[0:stop_iter])
@@ -248,7 +249,7 @@ class rBaggReg:  # Robust Bagging Regressor
             w, v = sp.linalg.eig(c_mat, ones_mat)
             sigma_bar = np.sqrt(np.nanmin(w.real))
             diff = np.sqrt(2 / np.pi) * sigma_bar - mu_max
-            diff_ind = (np.sign(diff) + 1)/2
+            diff_ind = (np.sign(diff) + 1) / 2
         else:
             self.mae_lb = None
             print('Invalid covariance matrix.')
@@ -259,6 +260,17 @@ class rBaggReg:  # Robust Bagging Regressor
 
 
     def calc_mae_ub(self, X, y, weights=None, normFlag=False):
+        # Obtain base predictions from ensemble
+        base_prediction = np.zeros([self.n_base_estimators, len(X)])
+        for k, base_estimator in enumerate(self.bagging_regressor.estimators_):
+            base_prediction[k, :] = base_estimator.predict(X)
+
+        # # Upper bound using BEM # #
+        weights = np.ones([self.bagging_regressor.n_estimators, ]) / self.bagging_regressor.n_estimators
+        mae_cln = auxfun.calc_error(weights.dot(base_prediction).T, y, 'mae')  # clean mae with non-robust weights
+        mae_ub_bem = mae_cln + np.sqrt(2 / np.pi * self.noise_covariance.sum())
+
+        # # Upper bound using GEM # #
         # Obtain coefficients
         err_mat_rglrz = self.noise_covariance  # + self.bag_tol * np.diag(np.ones(self.n_base_estimators, ))
         if auxfun.is_psd_mat(err_mat_rglrz):
@@ -271,15 +283,9 @@ class rBaggReg:  # Robust Bagging Regressor
         else:
             print("Error: Invalid covariance matrix.")
             raise ValueError('Invalid covariance matrix')
-
-        # Obtain base predictions from ensemble
-        base_prediction = np.zeros([self.n_base_estimators, len(X)])
-        for k, base_estimator in enumerate(self.bagging_regressor.estimators_):
-            base_prediction[k, :] = base_estimator.predict(X)
-        # Calculate lower bound
         mae_cln = auxfun.calc_error(weights.dot(base_prediction).T, y, 'mae')  # clean mae with non-robust weights
-        if normFlag:
-            self.mae_ub = mae_cln + np.sqrt(2 / np.pi * min_w)
-        else:
-            self.mae_ub = mae_cln + np.sqrt(2 / np.pi * self.noise_covariance.sum())
-        return self.mae_ub
+        mae_ub_gem = mae_cln + np.sqrt(2 / np.pi * min_w)
+
+        # Set upper bound(s)
+        self.mae_ub = np.nanmin([mae_ub_bem, mae_ub_gem])
+        return mae_ub_bem, mae_ub_gem
