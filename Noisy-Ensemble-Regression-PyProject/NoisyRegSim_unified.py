@@ -305,7 +305,7 @@ if reg_algo == "Bagging":
                         err_cln = np.zeros((len(snr_db_vec), len(ensemble_size), KFold_n_splits))
                         err_nr, err_r = np.zeros_like(err_cln), np.zeros_like(err_cln)
                         if criterion == "mae":
-                            lb = np.ones((len(snr_db_vec), KFold_n_splits))
+                            lb_cln, lb = np.ones((len(snr_db_vec), KFold_n_splits)), np.ones((len(snr_db_vec), KFold_n_splits))
                             ub_bem, ub_gem = np.ones((len(snr_db_vec), KFold_n_splits)), np.ones((len(snr_db_vec), KFold_n_splits))
 
                         kfold_idx = -1
@@ -374,7 +374,7 @@ if reg_algo == "Bagging":
 
                                         # - - - Calculate lower/upper bounds - - -
                                         if criterion == "mae":
-                                            lb[idx_snr_db, kfold_idx] = noisy_reg.calc_mae_lb(X_train, y_train, weights=noisy_reg.weights)
+                                            lb_cln[idx_snr_db, kfold_idx], lb[idx_snr_db, kfold_idx] = noisy_reg.calc_mae_lb(X_train, y_train, weights=noisy_reg.weights)
                                             ub_bem[idx_snr_db, kfold_idx], ub_gem[idx_snr_db, kfold_idx] = noisy_reg.calc_mae_ub(X_train, y_train, weights=noisy_reg.weights)
                                             # ub[idx_snr_db, kfold_idx] = np.nanmin([ub_bem, ub_gem])
 
@@ -438,6 +438,7 @@ if reg_algo == "Bagging":
                                               )
                                         if criterion == "mae":
                                             print("Bounds (MAE) [dB], (Lower, Upper(BEM), Upper(GEM)) = (" +
+                                                  "{0:0.3f}".format(10 * np.log10(np.max([lb_cln[idx_snr_db, kfold_idx], 1e-10]))) + ", " +
                                                   "{0:0.3f}".format(10 * np.log10(np.max([lb[idx_snr_db, kfold_idx], 1e-10]))) + ", " +
                                                   "{0:0.3f}".format(10 * np.log10(np.max([ub_bem[idx_snr_db, kfold_idx], 1e-10]))) + ", " +
                                                   "{0:0.3f}".format(10 * np.log10(np.max([ub_gem[idx_snr_db, kfold_idx], 1e-10]))) + ")"
@@ -471,7 +472,8 @@ if reg_algo == "Bagging":
                                                         'Bagging, Noiseless':   pd.Series(10 * np.log10(err_cln[:, _m_idx, :].mean(1))),
                                                         'Bagging, Non-Robust':  pd.Series(10 * np.log10(err_nr[:, _m_idx, :].mean(1))),
                                                         'Bagging, Robust':      pd.Series(10 * np.log10(err_r[:, _m_idx, :].mean(1))),
-                                                        'Lower bound, Robust':  pd.Series(10 * np.log10(lb.mean(1))),
+                                                        'Lower bound (CLN), Robust':  pd.Series(10 * np.log10(lb_cln.mean(1))),
+                                                        'Lower bound (FLD), Robust': pd.Series(10 * np.log10(lb.mean(1))),
                                                         'Upper bound (BEM), Robust':  pd.Series(10 * np.log10(ub_bem.mean(1))),
                                                         'Upper bound (GEM), Robust':  pd.Series(10 * np.log10(ub_gem.mean(1))),
                                                         'y Train Avg':          pd.Series(10 * np.log10([np.mean(y_train_avg)] * n_snr_pts)),
@@ -509,7 +511,8 @@ if reg_algo == "Bagging":
                                         plt.figure(figsize=(12, 8))
                                         plt.plot(snr_db_vec, 10 * np.log10(ub_bem.mean(1)), '--g', marker='o', label='Upper bound')
                                         plt.plot(snr_db_vec, 10 * np.log10(ub_gem.mean(1)), '--g', marker='x', label='Upper bound')
-                                        plt.plot(snr_db_vec, 10 * np.log10(lb.mean(1)), '-g', label='Lower bound')
+                                        plt.plot(snr_db_vec, 10 * np.log10(lb_cln.mean(1)), '-g', marker='o', label='Lower bound')
+                                        plt.plot(snr_db_vec, 10 * np.log10(lb.mean(1)), '-g', marker='x', label='Lower bound')
                                         plt.title("dataset: " + str(data_type) + ", T=" + str(
                                                 _m) + " regressors\nnoise=" + sigma_profile_type)
                                         plt.xlabel('SNR [dB]')

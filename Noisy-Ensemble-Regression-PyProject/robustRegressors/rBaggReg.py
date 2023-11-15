@@ -242,12 +242,14 @@ class rBaggReg:  # Robust Bagging Regressor
 
         mu = np.abs(base_prediction.transpose() - y)
         mu_max = np.max(mu, axis=1)
+        mu_min = np.min(mu, axis=1)
 
         c_mat = self.noise_covariance
         if auxfun.is_psd_mat(c_mat):
             ones_mat = np.ones([self.n_base_estimators, self.n_base_estimators])
             w, v = sp.linalg.eig(c_mat, ones_mat)
             sigma_bar = np.sqrt(np.nanmin(w.real))
+            sigma_max = np.sqrt(np.nanmax(w.real))
             diff = np.sqrt(2 / np.pi) * sigma_bar - mu_max
             diff_ind = (np.sign(diff) + 1) / 2
         else:
@@ -255,7 +257,7 @@ class rBaggReg:  # Robust Bagging Regressor
             print('Invalid covariance matrix.')
             raise ValueError('Invalid covariance matrix')
 
-        self.mae_lb = mae_cln + np.nanmean(diff * np.exp(-1/2 * diff_ind * (mu_max/sigma_bar)**2))
+        self.mae_lb = mae_cln, mae_cln + np.nanmean(diff * np.exp(-1/2 * diff_ind * (mu_max/sigma_bar)**2 -1/2 * (1-diff_ind) * (mu_min/sigma_max)**2))
         return self.mae_lb
 
 

@@ -11,7 +11,7 @@ bagging_method = "gem"  # "bem" / "gem"
 sigma_profile_type = "noiseless_even"  # "noiseless_even" / "uniform"
 T = 16
 
-results_path = "Results//2023_10_28//" + str(T) + "_" + criterion + "_" + sigma_profile_type + "//"
+results_path = "Results//2023_11_01//" + str(T) + "_" + criterion + "_" + sigma_profile_type + "//"
 
 # # # # # # Robust vs non-robust MSE
 data_label = {
@@ -112,19 +112,22 @@ if criterion.upper() == "MAE" and reg_algo == "Bagging":
         # scaler = err_results_df[reg_algo+", Robust"].array[-1]
         scaler = err_results_df["y Train Avg"].array[0]
         color = next(ax._get_lines.prop_cycler)['color']
-        plt.plot(snr_db_vec, err_results_df['Lower bound, Robust']-scaler, color=color, label=data_label[data_type], linestyle='--')
-        plt.plot(snr_db_vec, err_results_df['Upper bound (BEM), Robust']-scaler, color=color, label=data_label[data_type], linestyle='-', marker='o')
-        plt.plot(snr_db_vec, err_results_df['Upper bound (GEM), Robust']-scaler, color=color, label=data_label[data_type], linestyle='-', marker='x')
-        plt.plot(snr_db_vec, err_results_df[reg_algo + ", Robust"]-scaler, color=color, label=data_label[data_type], linestyle=':')
+        # plt.plot(snr_db_vec, err_results_df['Lower bound (CLN), Robust'] - scaler, color=color, label=data_label[data_type], linestyle='--')
+        # plt.plot(snr_db_vec, err_results_df['Lower bound (FLD), Robust'] - scaler, color=color, label=data_label[data_type], linestyle='--')
+        plt.plot(snr_db_vec, err_results_df[['Lower bound (CLN), Robust', 'Lower bound (FLD), Robust']].max(axis=1) - scaler, color=color, label=data_label[data_type], linestyle='--')
+        # plt.plot(snr_db_vec, err_results_df['Upper bound (BEM), Robust']-scaler, color=color, label=data_label[data_type], linestyle='-', marker='o')
+        # plt.plot(snr_db_vec, err_results_df['Upper bound (GEM), Robust']-scaler, color=color, label=data_label[data_type], linestyle='-', marker='x')
+        plt.plot(snr_db_vec, err_results_df[['Upper bound (BEM), Robust', 'Upper bound (GEM), Robust']].min(axis=1) - scaler, color=color, label=data_label[data_type], linestyle='-', marker='o')
+        # plt.plot(snr_db_vec, err_results_df[reg_algo + ", Robust"]-scaler, color=color, label=data_label[data_type], linestyle=':')
 
         plt.xticks(fontsize=16)
         plt.yticks(fontsize=16)
         plt.show(block=False)
-        plt.legend(fontsize=12, ncol=2)
+        # plt.legend(fontsize=12, ncol=2)
 
     # change legend order
     handles, labels = plt.gca().get_legend_handles_labels()  # get handles and labels
-    idxs = np.linspace(0, 3*(len(data_type_vec)-1), len(data_type_vec), dtype=np.int32)
+    idxs = np.linspace(0, 2*(len(data_type_vec)-1), len(data_type_vec), dtype=np.int32)
     order = 1+idxs  #np.concatenate((idxs, 1+idxs))  # specify order of items in legend
     plt.legend([handles[idx] for idx in order], [labels[idx] for idx in order], fontsize=12, ncol=1)  # add legend to plot
 
