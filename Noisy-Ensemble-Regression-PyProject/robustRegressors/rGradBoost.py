@@ -46,9 +46,9 @@ class rGradBoost:
         # set the criterion(s)
         self.criterion = criterion
         if self.criterion == "mse":
-            self.weak_lrnr_criterion = "squared_error"
-        elif criterion == "mae":
-            self.weak_lrnr_criterion = "absolute_error"
+            self.weak_lrnr_criterion = "mse"
+        elif self.criterion == "mae":
+            self.weak_lrnr_criterion = "mse"  # "absolute_error"
 
         # Weak learner list
         self.weak_learners = []
@@ -68,8 +68,8 @@ class rGradBoost:
                 # deriv = -np.sign(G-Y).sum()
             else:
                 s0 = np.sqrt(self.TrainNoiseCov[0, 0])
-                G_Y_s0 = (G-Y) / s0
-                cost_mat = np.sqrt(2/np.pi) * s0 * np.exp(-0.5 * G_Y_s0**2) + (G-Y) * (1 - 2*sp.stats.norm.cdf(-G_Y_s0))
+                G_Y_s0 = (G - Y) / (G * s0)
+                cost_mat = np.sqrt(2/np.pi) * G * s0 * np.exp(-0.5 * G_Y_s0**2) + (G-Y) * (1 - 2*sp.stats.norm.cdf(-G_Y_s0))
                 # deriv = -np.sqrt(2/np.pi) * G_Y_s0*s0 * gaussExpTerm * (1-2*sp.stats.norm.cdf(-G_Y_s0)) + 2*G_Y_s0 * gaussExpTerm/np.sqrt(2*np.pi*s0**2)
             # g_idx = np.argmin(np.abs(deriv.sum(axis=0)))
             cost = cost_mat.mean(axis=0)
@@ -90,7 +90,7 @@ class rGradBoost:
 
         n_samples = len(y)
         if criterion == "mse":
-            self.reg0 = np.mean(y)  # mean target value over dataset
+            self.reg0 = np.mean(y) / (1 + self.TrainNoiseCov[0, 0])  # mean target value over dataset
         elif criterion == "mae":
             if self.RobustFlag:
                 self.reg0 = reg0_line_search(self)
@@ -102,7 +102,11 @@ class rGradBoost:
         self._predictions = self._predictions_wl
 
         # Initialize residuals
-        self._residuals = y - self._predictions
+        self.criterion = criterion
+        if self.criterion == "mse":
+            self._residuals = y - self._predictions
+        elif criterion == "mae":
+            self._residuals = np.sign(y - self._predictions)
 
     ''' - - - LAE GradBoost: Unconstrained weight optimization - - - '''
     def fit(self, X, y, m: int = 10):

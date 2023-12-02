@@ -6,12 +6,12 @@ import numpy as np
 data_type_vec = ["sin", "exp", "make_reg", "diabetes", "white-wine", "kc_house_data"]
 # data_type_vec = ["sin", "exp", "make_reg"]
 criterion = "mae"  # "mse" / "mae"
-reg_algo = "Bagging"  # "GradBoost" / "Bagging"
+reg_algo = "GradBoost"  # "GradBoost" / "Bagging"
 bagging_method = "gem"  # "bem" / "gem"
-sigma_profile_type = "noiseless_even"  # "noiseless_even" / "uniform"
+sigma_profile_type = "uniform"  # "noiseless_even" / "uniform"
 T = 16
 
-results_path = "Results//2023_11_01//" + str(T) + "_" + criterion + "_" + sigma_profile_type + "//"
+results_path = "Results//2023_11_23//" + str(T) + "_" + criterion + "_" + sigma_profile_type + "//"
 
 # # # # # # Robust vs non-robust MSE
 data_label = {
@@ -55,7 +55,7 @@ for data_type_idx, data_type in enumerate(data_type_vec):
     # fig.set_size_inches(6.4, 4.8, forward=True)
     # fig.set_dpi(300)
     plt.show(block=False)
-    # fig.savefig(fig.get_label()+".png")
+    fig.savefig(fig.get_label()+".png")
 
     # plt.figure(figsize=(12, 8))
     # plt.plot(snr_db_vec, err_results_df[reg_algo+', Non-Robust'], '-xr', label='Non-robust')
@@ -65,9 +65,10 @@ for data_type_idx, data_type in enumerate(data_type_vec):
     # plt.ylabel(criterion.upper() + ' [dB]')
     # plt.legend()
     # plt.show(block=False)
-fig.savefig(results_path+fig.get_label()+".png")
 
-# # # # # #
+# fig.savefig(results_path+fig.get_label()+".png")
+
+# # # # # # GB vs BAGGING
 if False:
     fig, ax = plt.figure(criterion.upper() + "_" + reg_algo + "_" + "rGBR_vs_r" + bagging_method.upper() + "_" + sigma_profile_type + "_Gap", figsize=(8, 6), dpi=300), plt.axes()
     plt.xlabel('SNR [dB]', fontsize=18)
