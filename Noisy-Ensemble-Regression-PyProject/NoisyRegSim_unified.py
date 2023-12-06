@@ -37,7 +37,7 @@ min_sample_leaf = 1
 n_snr_pts = 10
 snr_db_vec = np.linspace(-25, 25, n_snr_pts)  # simulated SNRs [dB]
 n_repeat = 75  # Number of iterations for estimating expected performance
-sigma_profile_type = "uniform"  # uniform / single_noisy / noiseless_even (for GradBoost)
+sigma_profile_type = "noiseless_even"  # uniform / single_noisy / noiseless_even (for GradBoost)
 noisy_scale = 20
 
 n_samples = 1000  # Size of the (synthetic) dataset  in case of synthetic dataset
@@ -91,7 +91,7 @@ if reg_algo == "Bagging":
 
 elif reg_algo == "GradBoost":
     gd_learn_rate_dict = {  # learning rate for grad-dec per dataset: MAE, GradBoost - NonRobust
-        "sin": 1e-3,
+        "sin": 1e-2,
         "exp": 1e-3,
         "make_reg": 1e-3,
         "diabetes": 1e-4,
@@ -99,8 +99,8 @@ elif reg_algo == "GradBoost":
         "kc_house_data": 1e-3
     }
     gd_learn_rate_dict_r = {  # learning rate for grad-dec per dataset: MAE, GradBoost - Robust
-        "sin": 1e-3,
-        "exp": 1e-3,
+        "sin": 1e-2,
+        "exp": 1e-2,
         "make_reg": 1e-3,
         "diabetes": 1e-4,
         "white-wine": 1e-3,

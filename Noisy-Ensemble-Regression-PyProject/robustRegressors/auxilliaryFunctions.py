@@ -60,6 +60,10 @@ def get_dataset(data_type=None, n_samples=100, noise=0.1):
                 X, y = pd.DataFrame.from_records(X), pd.Series(y)
         # Standartization of dataset
         X, y = (X - X.mean()) / X.std(), (y - y.mean()) / y.std()
+        # Randomize data order
+        # perm_idx = np.random.permutation(len(y))
+        # y = y[perm_idx]
+        # X = X[perm_idx][:]
         return X, y
 
 def partition_dataset(data_type=None, test_size=0.2, n_samples=100, noise=0.1):
