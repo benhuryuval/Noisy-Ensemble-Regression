@@ -8,10 +8,10 @@ data_type_vec = ["sin", "exp", "make_reg", "diabetes", "white-wine", "kc_house_d
 criterion = "mae"  # "mse" / "mae"
 reg_algo = "GradBoost"  # "GradBoost" / "Bagging"
 bagging_method = "gem"  # "bem" / "gem"
-sigma_profile_type = "uniform"  # "noiseless_even" / "uniform"
+sigma_profile_type = "noiseless_even"  # "noiseless_even" / "uniform"
 T = 16
 
-results_path = "Results//2023_11_23//" + str(T) + "_" + criterion + "_" + sigma_profile_type + "//"
+results_path = "Results//2023_12_09//" + str(T) + "_" + criterion + "_" + sigma_profile_type + "//"
 
 # # # # # # Robust vs non-robust MSE
 data_label = {
@@ -66,7 +66,7 @@ for data_type_idx, data_type in enumerate(data_type_vec):
     # plt.legend()
     # plt.show(block=False)
 
-# fig.savefig(results_path+fig.get_label()+".png")
+fig.savefig(results_path+fig.get_label()+".png")
 
 # # # # # # GB vs BAGGING
 if False:

@@ -144,61 +144,18 @@ class rGradBoost:
             # Setting the weak learner weight
             if self.criterion == "mse":
                 y_minus_f = np.subtract(y, self._predictions)
-                sum_phi_y_minus_f = np.mean(np.multiply(self._predictions_wl, y_minus_f))
-                if _ == 1:  # first weak-learner (after initialization)
-                    sum_gamma_sigma = np.array([0])
-                else:
-                    gamma = self.gamma.reshape(_-1, 1)
-                    sum_gamma_sigma = gamma.T.dot(self.TrainNoiseCov[0:_-1, _])
-                phi_sqrd = np.mean(self._predictions_wl**2)
+                sum_phi_y_minus_f = np.mean(np.multiply(self._predictions_wl, y_minus_f), keepdims=True)
+                # if _ == 1:  # first weak-learner (after initialization)
+                #     sum_gamma_sigma = 0.0
+                # else:
+                    # gamma = self.gamma.reshape(_-1, 1)
+                prev_gamma = np.array(self.gamma[0:_])
+                prev_CovMat = np.array(self.TrainNoiseCov[0:_, _, np.newaxis])
+                sum_gamma_sigma = prev_gamma.T.dot(prev_CovMat)
+                phi_sqrd = np.mean(self._predictions_wl**2, keepdims=True)
                 new_gamma = (sum_phi_y_minus_f + self.RobustFlag * sum_gamma_sigma) / (phi_sqrd + self.RobustFlag * self.TrainNoiseCov[_, _])
 
             elif self.criterion == "mae":
-                # # # # # # # # # # # # #
-                # OLD GRADIENT:
-                # gamma_init, sigma = np.array([[1.0]]), np.sqrt(self.TrainNoiseCov[_, _])
-                # def calc_args(_predictions_wl, _residuals, gamma, sigma):
-                #     """ This function calculates the arguments a,b,c,d in the cost function w.r.t. gamma_t"""
-                #     mu = gamma * _predictions_wl + _residuals
-                #     if sigma == 0.0:  # FoldedNormal analysis requires sigma>0
-                #         a, b, d = 0.0, 0.0, 1.0
-                #         c = np.abs(mu)
-                #     else:
-                #         gs = np.abs(gamma) * np.abs(sigma)
-                #         a = np.sqrt(2 / np.pi) * gs
-                #         b = np.exp(-0.5 * mu ** 2 / gs ** 2)
-                #         c = mu
-                #         d = 1 - 2 * sp.stats.norm.cdf(-mu / gs)
-                #     return a, b, c, d
-                # def grad_gb_mae(_predictions_wl, _residuals, gamma, sigma):
-                #     """ This function calculates the gradient of the cost function w.r.t. gamma_t"""
-                #     a, b, c, d = calc_args(_predictions_wl, _residuals, gamma, sigma)
-                #     phi = _predictions_wl
-                #     mu = gamma * phi + _residuals
-                #     if sigma == 0.0:  # FoldedNormal analysis requires sigma>0
-                #         grad = np.mean(phi * np.sign(mu), axis=0, keepdims=True)
-                #     else:
-                #         gs = np.abs(gamma) * np.abs(sigma)
-                #         a_tag = np.sqrt(2 / np.pi) * sigma * np.sign(gamma)
-                #         b_tag = mu * (mu - gamma * phi) / (gamma ** 3 * sigma ** 2) * np.exp(-0.5 * (mu / gs) ** 2)
-                #         c_tag = phi
-                #         # d_tag = sp.stats.norm.pdf(-0.5 * mu / gs) * \
-                #         #         (np.abs(gamma)*phi - np.sign(gamma)*mu) / (gamma ** 2 * sigma)
-                #         d_tag = np.sqrt(2 / np.pi) * np.exp(-0.5 * mu**2 / gs**2) * \
-                #                 (np.abs(gamma)*phi - np.sign(gamma)*mu) / (gamma ** 2 * sigma)
-                #         grad = np.mean(a_tag * b + b_tag * a + c_tag * d + d_tag * c, axis=0, keepdims=True)
-                #     return grad
-                # def cost_gb_mae(_predictions_wl, _residuals, gamma, sigma):
-                #     a, b, c, d = calc_args(_predictions_wl, _residuals, gamma, sigma)
-                #     return np.mean(a * b + c * d)
-                # grad_fun = lambda gamma: grad_gb_mae(self._predictions_wl, self._residuals, gamma, sigma)
-                # cost_fun = lambda gamma: cost_gb_mae(self._predictions_wl, self._residuals, gamma, sigma)
-
-                # NEW GRADIENT (02/12/23):
-                # Setting the weak learner weight via gradient-descent optimization
-                # if _ == 1:  # first weak-learner (after initialization)
-                #     gamma_init = np.array([[1.0]])
-                # else:
                 gamma_init = np.array([[1.0]])
                 def grad_rgem_mae(alpha, Sigma, base_prediction, y):
                     mu = base_prediction.dot(alpha) - y
@@ -206,15 +163,6 @@ class rGradBoost:
                     if sigma2 == 0:
                         grad = np.expand_dims(base_prediction[:, -1], axis=1) * np.sign(mu)
                     else:
-                        # rho = mu / sigma
-                        # mu_tag = base_prediction
-                        # sig_tag = (Sigma.dot(alpha)) / sigma
-                        # rho_tag = (base_prediction * sigma - mu * sig_tag.T) / (sigma ** 2)
-                        # grad = np.sqrt(2 / np.pi) * np.exp(-0.5 * rho ** 2) * (sig_tag.T - sigma * rho * rho_tag) + \
-                        #        mu_tag * (1 - 2 * sp.stats.norm.cdf(-rho)) + \
-                        #        2 * mu * rho_tag * sp.stats.norm.pdf(-rho)
-                    # return grad.mean(0)[-1]
-
                         sigma2_tag = alpha.T.dot(Sigma[:, -1])
                         mu_tag = np.expand_dims(base_prediction[:, -1], axis=1)
 
@@ -279,17 +227,16 @@ class rGradBoost:
                     plt.close(fig_dataset)
                 # # DEBUG END # #
 
-                # Saving the current total predictions and coefficient
-                self.gamma = np.concatenate((self.gamma, new_gamma), axis=0)
-                self._predictions = self._predictions + new_gamma * self._predictions_wl
+            # Saving the current total predictions and coefficient
+            self.gamma = np.concatenate((self.gamma, new_gamma), axis=0)
+            self._predictions = self._predictions + new_gamma * self._predictions_wl
 
-                # Updating the residuals
-                # self._residuals = self._predictions - y
-                if self.criterion == "mse":
-                    self._residuals = y - self._predictions
-                elif self.criterion == "mae":
-                    self._residuals = np.sign(y - self._predictions)
-
+            # Updating the residuals
+            # self._residuals = self._predictions - y
+            if self.criterion == "mse":
+                self._residuals = y - self._predictions
+            elif self.criterion == "mae":
+                self._residuals = np.sign(y - self._predictions)
 
             # - - - - - - - - - - - - -
             # LAE DEBUG PLOTS
@@ -349,10 +296,13 @@ class rGradBoost:
         # Incrementing the current iteration
         self.cur_m += m
 
-    def predict(self, X, PredNoiseCov):
+    def predict(self, X, PredNoiseCov, weights=None):
         """
         Given an ensemble, predict the value of the y variable for input(s) X
         """
+        if weights is None:
+            weights = self.gamma
+
         # Generating noise
         pred_noise = np.random.multivariate_normal(np.zeros(self.cur_m+1), PredNoiseCov[:self.cur_m+1, :self.cur_m+1], X.shape[0])
 
@@ -362,7 +312,7 @@ class rGradBoost:
         # And aggregating (noisy) predictions
         for _m in range(self.cur_m):
             noisy_pred = self.weak_learners[_m].predict(X) + pred_noise[:, _m+1]
-            yhat += self.gamma[_m+1] * noisy_pred
+            yhat += weights[_m+1] * noisy_pred
         return yhat
 
     def plot(self):
@@ -372,3 +322,70 @@ class rGradBoost:
         plt.plot(self.X[:, 0], self._predictions, 'o', label="Prediction")
         plt.xlabel('x')
         plt.ylabel('y')
+
+    def fit_mse_noisy(self, X, y, m: int = 10):
+        """
+        Train ensemble members using GradientBoosting with MSE and noisy regressors (not robustly)
+        """
+
+        # Iterating over the number of estimators
+        for _ in range(self.cur_m+1, self.cur_m+m+1):
+            # Growing the tree on the residuals
+            _weak_learner = Tree(
+                max_depth=self.max_depth,
+                min_samples_leaf=self.min_sample_leaf,
+                criterion=self.weak_lrnr_criterion
+            )
+            _weak_learner.fit(X, self._residuals)
+            self.weak_learners.append(_weak_learner)  # Appending the weak learner to the list
+
+            # Getting the weak learner predictions
+            self._predictions_wl = _weak_learner.predict(X).reshape(len(y), 1)
+            self._predictions_all_wl = np.concatenate((self._predictions_all_wl, self._predictions_wl), axis=1)
+
+            # # DEBUG # #
+            # Fit of current weak-learner
+            if False:
+                import matplotlib.pyplot as plt
+                fig_dataset = plt.figure(figsize=(12, 8))
+                plt.plot(self.X[:, 0], self._residuals, 'o', label="Train")
+                plt.plot(self.X[:, 0], self._predictions_wl, '.', label="Prediction")
+                plt.xlabel('x')
+                plt.ylabel('y')
+                plt.close(fig_dataset)
+            # # DEBUG END # #
+
+            # Setting the weak learner weight
+            if self.criterion == "mse":
+                # calculate \sum_{\tau=1}^{t-1} \alpha_\tau * \tilde{phi}_\tau
+                sum_a_phi = np.zeros((X.shape[0],1))
+                for _m in range(self.cur_m):
+                    noise = np.random.multivariate_normal(np.zeros(self.cur_m),
+                                                          self.TrainNoiseCov[_m, _m],
+                                                          X.shape[0])
+                    tilde_phi = self._predictions_all_wl[:, _m, np.newaxis] + noise
+                    sum_a_phi += self.gamma[_m] * tilde_phi
+                # calculate \alpha_t * \tilde{phi}_t
+                noise = np.random.multivariate_normal(np.zeros(1),
+                                                      [[self.TrainNoiseCov[self.cur_m, self.cur_m]]],
+                                                      X.shape[0])
+                tilde_phi_t = self._predictions_wl + noise
+                # solve weight polynomial
+                y_minus_f = np.subtract(y, sum_a_phi)
+                C = np.mean(y_minus_f**2, keepdims=True)
+                B = -2*np.mean(np.multiply(y_minus_f, tilde_phi_t), keepdims=True)
+                A = np.mean(tilde_phi_t**2, keepdims=True)
+
+                new_gamma =(-B + np.sqrt(B**2 - 4*A*C)) / (2*A)
+            else:
+                raise Exception("Invalid criterion for noisy training")
+
+            # Saving the current total predictions and coefficient
+            self.gamma = np.concatenate((self.gamma, new_gamma), axis=0)
+            self._predictions = self._predictions + new_gamma * self._predictions_wl
+
+            # Updating the residuals
+            self._residuals = y - self._predictions
+
+        # Incrementing the current iteration
+        self.cur_m += m

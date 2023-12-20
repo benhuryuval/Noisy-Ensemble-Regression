@@ -37,17 +37,15 @@ min_sample_leaf = 1
 n_snr_pts = 10
 snr_db_vec = np.linspace(-25, 25, n_snr_pts)  # simulated SNRs [dB]
 n_repeat = 75  # Number of iterations for estimating expected performance
-sigma_profile_type = "noiseless_even"  # uniform / single_noisy / noiseless_even (for GradBoost)
+sigma_profile_type = "uniform"  # uniform / single_noisy / noiseless_even (for GradBoost)
 noisy_scale = 20
 
 n_samples = 1000  # Size of the (synthetic) dataset  in case of synthetic dataset
 train_noise = 0.01  # Standard deviation of the measurement / training noise in case of synthetic dataset
 
-# data_type_vec = ["kc_house_data"]  # kc_house_data / diabetes / white-wine / sin / exp / make_reg
-data_type_vec = ["sin", "exp", "diabetes", "make_reg", "white-wine", "kc_house_data"]
-# data_type_vec = ["white-wine", "kc_house_data"]
+data_type_vec = ["sin", "exp", "diabetes", "make_reg", "white-wine", "kc_house_data"] # kc_house_data / diabetes / white-wine / sin / exp / make_reg
 
-criterion = "mae"  # "mse" / "mae"
+criterion = "mse"  # "mse" / "mae"
 reg_algo = "GradBoost"  # "GradBoost" / "Bagging"
 bagging_method = "gem"  # "bem" / "gem" / "lr"
 gradboost_robust_flag = True
@@ -92,19 +90,19 @@ if reg_algo == "Bagging":
 elif reg_algo == "GradBoost":
     gd_learn_rate_dict = {  # learning rate for grad-dec per dataset: MAE, GradBoost - NonRobust
         "sin": 1e-2,
-        "exp": 1e-3,
-        "make_reg": 1e-3,
-        "diabetes": 1e-4,
-        "white-wine": 1e-3,
-        "kc_house_data": 1e-3
+        "exp": 1e-2,
+        "make_reg": 1e-2,
+        "diabetes": 1e-2,
+        "white-wine": 1e-2,
+        "kc_house_data": 1e-2
     }
     gd_learn_rate_dict_r = {  # learning rate for grad-dec per dataset: MAE, GradBoost - Robust
         "sin": 1e-2,
         "exp": 1e-2,
-        "make_reg": 1e-3,
-        "diabetes": 1e-4,
-        "white-wine": 1e-3,
-        "kc_house_data": 1e-3
+        "make_reg": 1e-2,
+        "diabetes": 1e-2,
+        "white-wine": 1e-2,
+        "kc_house_data": 1e-2
     }
     gd_tol = 1e-6  #
     gd_decay_rate = 0.0  #
@@ -304,9 +302,9 @@ if reg_algo == "Bagging":
 
                         err_cln = np.zeros((len(snr_db_vec), len(ensemble_size), KFold_n_splits))
                         err_nr, err_r = np.zeros_like(err_cln), np.zeros_like(err_cln)
-                        if criterion == "mae":
-                            lb_cln, lb = np.ones((len(snr_db_vec), KFold_n_splits)), np.ones((len(snr_db_vec), KFold_n_splits))
-                            ub_bem, ub_gem = np.ones((len(snr_db_vec), KFold_n_splits)), np.ones((len(snr_db_vec), KFold_n_splits))
+
+                        lb_1, lb_2 = np.ones((len(snr_db_vec), KFold_n_splits)), np.ones((len(snr_db_vec), KFold_n_splits))
+                        ub_bem, ub_gem = np.ones((len(snr_db_vec), KFold_n_splits)), np.ones((len(snr_db_vec), KFold_n_splits))
 
                         kfold_idx = -1
                         for train_index, test_index in kf.split(X):
@@ -374,7 +372,7 @@ if reg_algo == "Bagging":
 
                                         # - - - Calculate lower/upper bounds - - -
                                         if criterion == "mae":
-                                            lb_cln[idx_snr_db, kfold_idx], lb[idx_snr_db, kfold_idx] = noisy_reg.calc_mae_lb(X_train, y_train, weights=noisy_reg.weights)
+                                            lb_1[idx_snr_db, kfold_idx], lb_2[idx_snr_db, kfold_idx] = noisy_reg.calc_mae_lb(X_train, y_train, weights=noisy_reg.weights)
                                             ub_bem[idx_snr_db, kfold_idx], ub_gem[idx_snr_db, kfold_idx] = noisy_reg.calc_mae_ub(X_train, y_train, weights=noisy_reg.weights)
                                             # ub[idx_snr_db, kfold_idx] = np.nanmin([ub_bem, ub_gem])
 
@@ -438,8 +436,8 @@ if reg_algo == "Bagging":
                                               )
                                         if criterion == "mae":
                                             print("Bounds (MAE) [dB], (Lower, Upper(BEM), Upper(GEM)) = (" +
-                                                  "{0:0.3f}".format(10 * np.log10(np.max([lb_cln[idx_snr_db, kfold_idx], 1e-10]))) + ", " +
-                                                  "{0:0.3f}".format(10 * np.log10(np.max([lb[idx_snr_db, kfold_idx], 1e-10]))) + ", " +
+                                                  "{0:0.3f}".format(10 * np.log10(np.max([lb_1[idx_snr_db, kfold_idx], 1e-10]))) + ", " +
+                                                  "{0:0.3f}".format(10 * np.log10(np.max([lb_2[idx_snr_db, kfold_idx], 1e-10]))) + ", " +
                                                   "{0:0.3f}".format(10 * np.log10(np.max([ub_bem[idx_snr_db, kfold_idx], 1e-10]))) + ", " +
                                                   "{0:0.3f}".format(10 * np.log10(np.max([ub_gem[idx_snr_db, kfold_idx], 1e-10]))) + ")"
                                               )
@@ -472,8 +470,8 @@ if reg_algo == "Bagging":
                                                         'Bagging, Noiseless':   pd.Series(10 * np.log10(err_cln[:, _m_idx, :].mean(1))),
                                                         'Bagging, Non-Robust':  pd.Series(10 * np.log10(err_nr[:, _m_idx, :].mean(1))),
                                                         'Bagging, Robust':      pd.Series(10 * np.log10(err_r[:, _m_idx, :].mean(1))),
-                                                        'Lower bound (CLN), Robust':  pd.Series(10 * np.log10(lb_cln.mean(1))),
-                                                        'Lower bound (FLD), Robust': pd.Series(10 * np.log10(lb.mean(1))),
+                                                        'Lower bound (CLN), Robust':  pd.Series(10 * np.log10(lb_1.mean(1))),
+                                                        'Lower bound (FLD), Robust': pd.Series(10 * np.log10(lb_2.mean(1))),
                                                         'Upper bound (BEM), Robust':  pd.Series(10 * np.log10(ub_bem.mean(1))),
                                                         'Upper bound (GEM), Robust':  pd.Series(10 * np.log10(ub_gem.mean(1))),
                                                         'y Train Avg':          pd.Series(10 * np.log10([np.mean(y_train_avg)] * n_snr_pts)),
@@ -511,8 +509,8 @@ if reg_algo == "Bagging":
                                         plt.figure(figsize=(12, 8))
                                         plt.plot(snr_db_vec, 10 * np.log10(ub_bem.mean(1)), '--g', marker='o', label='Upper bound')
                                         plt.plot(snr_db_vec, 10 * np.log10(ub_gem.mean(1)), '--g', marker='x', label='Upper bound')
-                                        plt.plot(snr_db_vec, 10 * np.log10(lb_cln.mean(1)), '-g', marker='o', label='Lower bound')
-                                        plt.plot(snr_db_vec, 10 * np.log10(lb.mean(1)), '-g', marker='x', label='Lower bound')
+                                        plt.plot(snr_db_vec, 10 * np.log10(lb_1.mean(1)), '-g', marker='o', label='Lower bound')
+                                        plt.plot(snr_db_vec, 10 * np.log10(lb_2.mean(1)), '-g', marker='x', label='Lower bound')
                                         plt.title("dataset: " + str(data_type) + ", T=" + str(
                                                 _m) + " regressors\nnoise=" + sigma_profile_type)
                                         plt.xlabel('SNR [dB]')
