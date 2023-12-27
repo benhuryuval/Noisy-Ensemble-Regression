@@ -4,10 +4,9 @@ import sklearn.model_selection
 import sklearn.datasets
 import pandas as pd
 
-rng = np.random.RandomState(42)
 
 # Functions:
-def f(data_type='sin', n_samples=100, X=None):
+def f(data_type='sin', n_samples=100, X=None, rng=np.random.default_rng(seed=42)):
         if data_type == 'sin':
                 if X == None:
                     X = np.linspace(0, 6, n_samples)[:, np.newaxis]
@@ -16,18 +15,26 @@ def f(data_type='sin', n_samples=100, X=None):
                 if X == None:
                     X = np.linspace(0, 6, n_samples)[:, np.newaxis]
                 f = np.exp(-(X ** 2)).ravel() + 1.5 * np.exp(-((X - 2) ** 2)).ravel()# + rng.normal(0, 0.1, X.shape[0])
+        if data_type == 'sin_outliers':
+                if X == None:
+                    X = np.linspace(0, 6, n_samples)[:, np.newaxis]
+                f = np.sin(X).ravel() + np.sin(6 * X).ravel()
+                n_outliers = round(n_samples/100)
+                outlier_idxs, outlier_vals = rng.integers(n_samples, size=n_outliers), rng.integers(1, size=n_outliers)
+                f[outlier_idxs] = outlier_vals * np.max(f) + (1-outlier_vals) * np.min(f)
+                f[outlier_idxs] *= 0
         return X, f
 
-def generate(data_type=None, n_samples=100, noise=0.0, n_repeat=1):
+def generate(data_type=None, n_samples=100, noise=0.0, n_repeat=1, rng=np.random.default_rng(seed=42)):
         if data_type == 'make_reg':
-                X, y = sk.datasets.make_regression(n_samples=n_samples, n_features=3, n_informative=2, noise=noise, random_state=42)
+                X, y = sk.datasets.make_regression(n_samples=n_samples, n_features=3, n_informative=2, noise=noise, random_state=0)
                 y /= np.max(y)
         else:
-                X, y = f(data_type, n_samples)
-                y += np.random.normal(0.0, noise, n_samples)
+                X, y = f(data_type, n_samples, rng=rng)
+                y += rng.normal(0.0, noise, n_samples)
         return X, y
 
-def get_dataset(data_type=None, n_samples=100, noise=0.1):
+def get_dataset(data_type=None, n_samples=100, noise=0.1, rng=np.random.default_rng(seed=42)):
         # datasets_path = "..//Datasets//"
         datasets_path = "C://Users//Yuval//Documents//GitHub//Noisy-Ensemble-Regression//Datasets//"
         if data_type == 'kc_house_data':
@@ -56,7 +63,7 @@ def get_dataset(data_type=None, n_samples=100, noise=0.1):
                 dataset_df = pd.read_csv(dataset_link)
                 X, y = dataset_df['weight'], dataset_df['mpg']
         else:
-                X, y = generate(data_type, n_samples=n_samples, noise=noise, n_repeat=1)
+                X, y = generate(data_type, n_samples=n_samples, noise=noise, n_repeat=1, rng=rng)
                 X, y = pd.DataFrame.from_records(X), pd.Series(y)
         # Standartization of dataset
         X, y = (X - X.mean()) / X.std(), (y - y.mean()) / y.std()
@@ -71,7 +78,7 @@ def partition_dataset(data_type=None, test_size=0.2, n_samples=100, noise=0.1):
         X_train, X_test, y_train, y_test = sk.model_selection.train_test_split(X,
                                                                                y,
                                                                                test_size=test_size,
-                                                                               random_state=42)
+                                                                               random_state=rng)
         return X_train, y_train, X_test, y_test
 
 def is_psd_mat(matrix):

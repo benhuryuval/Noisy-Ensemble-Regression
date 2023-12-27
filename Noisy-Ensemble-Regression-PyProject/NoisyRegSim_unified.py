@@ -23,7 +23,7 @@ import robustRegressors.auxilliaryFunctions as aux
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 # Constants
-rng = np.random.RandomState(42)
+rng = np.random.default_rng(seed=42)
 plot_flag = False #True #False
 save_results_to_file_flag = True
 results_path = "Results//"
@@ -44,6 +44,7 @@ n_samples = 1000  # Size of the (synthetic) dataset  in case of synthetic datase
 train_noise = 0.01  # Standard deviation of the measurement / training noise in case of synthetic dataset
 
 data_type_vec = ["sin", "exp", "diabetes", "make_reg", "white-wine", "kc_house_data"] # kc_house_data / diabetes / white-wine / sin / exp / make_reg
+data_type_vec = ["sin"]
 
 criterion = "mse"  # "mse" / "mae"
 reg_algo = "GradBoost"  # "GradBoost" / "Bagging"
@@ -123,8 +124,8 @@ if reg_algo == "GradBoost":
         for data_type in data_type_vec:
                 print("- - - dataset: " + str(data_type) + " - - -")
                 # Dataset preparation
-                X, y = aux.get_dataset(data_type=data_type, n_samples=n_samples, noise=train_noise)
-                perm = np.random.permutation(len(X))
+                X, y = aux.get_dataset(data_type=data_type, n_samples=n_samples, noise=train_noise, rng=rng)
+                perm = rng.permutation(len(X))
                 X, y = X.to_numpy()[perm], y.to_numpy()[perm]
                 if (len(X.shape) == 1) or (X.shape[1] == 1):
                         X = X.reshape(-1, 1)
@@ -163,7 +164,7 @@ if reg_algo == "GradBoost":
                                 rgb_cln.fit(X_train, y_train, m=_m)
 
                                 # Predicting without noise (for reference)
-                                pred_cln = rgb_cln.predict(X_test, PredNoiseCov=np.zeros([_m + 1, _m + 1]))
+                                pred_cln = rgb_cln.predict(X_test, PredNoiseCov=np.zeros([_m + 1, _m + 1]), rng=rng)
                                 # # Saving the predictions to the training set
                                 # err_cln[:, _m_idx, kfold_idx] = np.abs(np.subtract(y_test[:, 0], pred_cln)).mean()
                                 err_cln[:, _m_idx, kfold_idx] = aux.calc_error(y_test[:, 0], pred_cln, criterion)
@@ -211,10 +212,10 @@ if reg_algo == "GradBoost":
                                         pred_nr, pred_r = np.zeros(len(y_test)), np.zeros(len(y_test))
                                         for _n in range(0, n_repeat):
                                                 # - - - NON-ROBUST - - -
-                                                pred_nr = rgb_nr.predict(X_test, PredNoiseCov=noise_covariance)
+                                                pred_nr = rgb_nr.predict(X_test, PredNoiseCov=noise_covariance, rng=rng)
                                                 err_nr[idx_snr_db, _m_idx, kfold_idx] += aux.calc_error(y_test[:,0], pred_nr, criterion)
                                                 # - - - ROBUST - - -
-                                                pred_r = rgb_r.predict(X_test, PredNoiseCov=noise_covariance)
+                                                pred_r = rgb_r.predict(X_test, PredNoiseCov=noise_covariance, rng=rng)
                                                 err_r[idx_snr_db, _m_idx, kfold_idx] += aux.calc_error(y_test[:,0], pred_r, criterion)
 
                                         # Expectation of error (over multiple realizations)
@@ -288,7 +289,7 @@ if reg_algo == "Bagging":
                 print("- - - dataset: " + str(data_type) + " - - -")
                 # Dataset preparation
                 X, y = aux.get_dataset(data_type=data_type, n_samples=n_samples, noise=train_noise)
-                perm = np.random.permutation(len(X))
+                perm = rng.permutation(len(X))
                 X, y = X.to_numpy()[perm], y.to_numpy()[perm]
                 if (len(X.shape) == 1) or (X.shape[1] == 1):
                     X = X.reshape(-1, 1)
@@ -320,14 +321,14 @@ if reg_algo == "Bagging":
                                 # - - - CLEAN BAGGING - - -
                                 # Initiating the tree
                                 if criterion == "mse":
-                                        cln_reg = sklearn.ensemble.BaggingRegressor(
-                                                sk.tree.DecisionTreeRegressor(max_depth=tree_max_depth),
-                                                n_estimators=_m, random_state=rng)
+                                    cln_reg = sklearn.ensemble.BaggingRegressor(
+                                            sk.tree.DecisionTreeRegressor(max_depth=tree_max_depth),
+                                            n_estimators=_m, random_state=0)
                                 elif criterion == "mae":
-                                        cln_reg = sklearn.ensemble.BaggingRegressor(
-                                                sk.tree.DecisionTreeRegressor(max_depth=tree_max_depth,
-                                                                              criterion="mae"),
-                                                n_estimators=_m, random_state=rng)
+                                    cln_reg = sklearn.ensemble.BaggingRegressor(
+                                            sk.tree.DecisionTreeRegressor(max_depth=tree_max_depth,
+                                                                          criterion="mae"),
+                                            n_estimators=_m, random_state=0)
 
                                 # Fitting on training data
                                 cln_reg.fit(X_train, y_train[:, 0])
@@ -388,7 +389,7 @@ if reg_algo == "Bagging":
                                             sort_idxs_test = np.argsort(X_test[:, 0])
                                             sort_idxs_train = np.argsort(X_train[:, 0])
                                             for _n in range(0, n_repeat_plt):
-                                                y_pred[:, _n] = noisy_reg.predict(X_test[sort_idxs_test]) #[:, 0]
+                                                y_pred[:, _n] = noisy_reg.predict(X_test[sort_idxs_test], rng=rng) #[:, 0]
                                             X_test_ravel = np.repeat(X_test[sort_idxs_test, 0], n_repeat_plt)
                                             plt.plot(X_test_ravel, y_pred.ravel(), linestyle='', marker='x', color='r', label='Test: Noisy prediction', markersize=6.0, alpha=0.25)
                                             plt.plot(X_train[sort_idxs_train, 0], y_train[sort_idxs_train, 0], linestyle='-', label='Train', linewidth=8.0)
@@ -419,10 +420,10 @@ if reg_algo == "Bagging":
                                         pred_nr, pred_r = np.zeros(len(y_test)), np.zeros(len(y_test))
                                         for _n in range(0, n_repeat):
                                                 # - - - NON-ROBUST - - -
-                                                pred_nr = noisy_reg.predict(X_test)
+                                                pred_nr = noisy_reg.predict(X_test, rng=rng)
                                                 err_nr[idx_snr_db, _m_idx, kfold_idx] += aux.calc_error(y_test, pred_nr, criterion)
                                                 # - - - ROBUST - - -
-                                                pred_r = noisy_rreg.predict(X_test)
+                                                pred_r = noisy_rreg.predict(X_test, rng=rng)
                                                 err_r[idx_snr_db, _m_idx, kfold_idx] += aux.calc_error(y_test, pred_r, criterion)
 
                                         # Expectation of error (over multiple realizations)

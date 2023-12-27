@@ -23,7 +23,7 @@ class rBaggReg:  # Robust Bagging Regressor
         self.weights = np.ones([n_base_estimators,]) / n_base_estimators
         self.n_base_estimators = n_base_estimators
         self.integration_type = integration_type
-        # gradient=descent params
+        # gradient-descent params
         self.gd_tol, self.learn_rate, self.decay_rate = gd_tol, learn_rate, decay_rate
         self.bag_tol = bag_tol
 
@@ -186,7 +186,7 @@ class rBaggReg:  # Robust Bagging Regressor
                                                                                max_iter=5000, min_iter=500,
                                                                                tol=self.gd_tol, learn_rate=self.learn_rate, decay_rate=self.decay_rate)
             self.weights = weights_evolution[np.argmin(cost_evolution[0:stop_iter])]
-            self.weights = self.weights / np.sum(self.weights)  # TODO: this is just to debug lower bound
+            # self.weights = self.weights / np.sum(self.weights)  # TODO: this is just to debug lower bound
 
             # # DEBUG # #
             if False:  # False True:
@@ -213,7 +213,7 @@ class rBaggReg:  # Robust Bagging Regressor
             self.fit_mae(X, y)
         return self
 
-    def predict(self, X, weights=None):
+    def predict(self, X, weights=None, rng = np.random.default_rng(seed=42)):
         if weights is None:
             weights = self.weights
 
@@ -223,7 +223,7 @@ class rBaggReg:  # Robust Bagging Regressor
             base_prediction[k, :] = base_estimator.predict(X)
 
         # Generate noise
-        pred_noise = np.random.multivariate_normal(np.zeros(self.n_base_estimators), self.noise_covariance, len(X))
+        pred_noise = rng.multivariate_normal(np.zeros(self.n_base_estimators), self.noise_covariance, len(X))
 
         # Return integrated noisy predictions
         return weights.dot(base_prediction + pred_noise.T).T
@@ -259,7 +259,6 @@ class rBaggReg:  # Robust Bagging Regressor
 
         self.mae_lb = mae_cln, mae_cln + np.nanmean(diff * np.exp(-1/2 * diff_ind * (mu_max/sigma_bar)**2 -1/2 * (1-diff_ind) * (mu_min/sigma_max)**2))
         return self.mae_lb
-
 
     def calc_mae_ub(self, X, y, weights=None, normFlag=False):
         # Obtain base predictions from ensemble

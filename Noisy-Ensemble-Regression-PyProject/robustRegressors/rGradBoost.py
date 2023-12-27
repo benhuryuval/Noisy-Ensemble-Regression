@@ -296,7 +296,7 @@ class rGradBoost:
         # Incrementing the current iteration
         self.cur_m += m
 
-    def predict(self, X, PredNoiseCov, weights=None):
+    def predict(self, X, PredNoiseCov, weights=None, rng=np.random.default_rng(seed=42)):
         """
         Given an ensemble, predict the value of the y variable for input(s) X
         """
@@ -304,7 +304,7 @@ class rGradBoost:
             weights = self.gamma
 
         # Generating noise
-        pred_noise = np.random.multivariate_normal(np.zeros(self.cur_m+1), PredNoiseCov[:self.cur_m+1, :self.cur_m+1], X.shape[0])
+        pred_noise = rng.multivariate_normal(np.zeros(self.cur_m+1), PredNoiseCov[:self.cur_m+1, :self.cur_m+1], X.shape[0])
 
         # Starting from the (noisy) mean/median
         yhat = self.reg0 + pred_noise[:, 0]
@@ -360,13 +360,13 @@ class rGradBoost:
                 # calculate \sum_{\tau=1}^{t-1} \alpha_\tau * \tilde{phi}_\tau
                 sum_a_phi = np.zeros((X.shape[0],1))
                 for _m in range(self.cur_m):
-                    noise = np.random.multivariate_normal(np.zeros(self.cur_m),
+                    noise = rng.multivariate_normal(np.zeros(self.cur_m),
                                                           self.TrainNoiseCov[_m, _m],
                                                           X.shape[0])
                     tilde_phi = self._predictions_all_wl[:, _m, np.newaxis] + noise
                     sum_a_phi += self.gamma[_m] * tilde_phi
                 # calculate \alpha_t * \tilde{phi}_t
-                noise = np.random.multivariate_normal(np.zeros(1),
+                noise = rng.multivariate_normal(np.zeros(1),
                                                       [[self.TrainNoiseCov[self.cur_m, self.cur_m]]],
                                                       X.shape[0])
                 tilde_phi_t = self._predictions_wl + noise
