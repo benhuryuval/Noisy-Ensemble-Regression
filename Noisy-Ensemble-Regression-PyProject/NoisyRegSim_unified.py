@@ -108,6 +108,22 @@ elif reg_algo == "GradBoost":
     gd_tol = 1e-6  #
     gd_decay_rate = 0.0  #
 
+def get_noise_covmat(y_train, _m=1, snr_db=0, noisy_scale=1):
+    snr = 10 ** (snr_db / 10)
+    sig_var = np.mean(np.abs(y_train) ** 2)  # np.var(y_train)
+    if sigma_profile_type == "uniform":
+        sigma_sqr = sig_var / snr
+        noise_covariance = np.diag(sigma_sqr * np.ones([_m, ]))
+    elif sigma_profile_type == "single_noisy":
+        sigma_sqr = sig_var / (snr * (1 + (noisy_scale - 1) / _m))
+        noise_covariance = np.diag(sigma_sqr / noisy_scale * np.ones([_m, ]))
+        noise_covariance[0, 0] = sigma_sqr
+    elif sigma_profile_type == "noiseless_even":
+        sigma_sqr = sig_var / ((1 + (noisy_scale - 1) / 2) * snr)
+        sigma_profile = sigma_sqr * np.ones([_m, ])
+        sigma_profile[1::2] *= noisy_scale
+        noise_covariance = np.diag(sigma_profile)
+    return noise_covariance
 
 # Verify inputs
 if reg_algo == "GradBoost" and bagging_method == "lr":
@@ -125,12 +141,6 @@ if reg_algo == "GradBoost":
                 print("- - - dataset: " + str(data_type) + " - - -")
                 # Dataset preparation
                 X, y = aux.get_dataset(data_type=data_type, n_samples=n_samples, noise=train_noise, rng=rng)
-                perm = rng.permutation(len(X))
-                X, y = X.to_numpy()[perm], y.to_numpy()[perm]
-                if (len(X.shape) == 1) or (X.shape[1] == 1):
-                        X = X.reshape(-1, 1)
-                y = y.reshape(-1, 1)
-
                 kf = KFold(n_splits=KFold_n_splits, random_state=None, shuffle=False)
 
                 err_cln = np.zeros((len(snr_db_vec), len(ensemble_size), KFold_n_splits))
@@ -174,20 +184,7 @@ if reg_algo == "GradBoost":
                                         print("snr " + " = " + "{0:0.3f}".format(snr_db) + ": ", end=" ")
 
                                         # Set noise variance
-                                        snr = 10 ** (snr_db / 10)
-                                        sig_var = np.mean(np.abs(y_train)**2)  # np.var(y_train)
-                                        if sigma_profile_type == "uniform":
-                                            sigma_sqr = sig_var / snr
-                                            noise_covariance = np.diag(sigma_sqr * np.ones([ensemble_size[_m_idx] + 1, ]))
-                                        elif sigma_profile_type == "single_noisy":
-                                            sigma_sqr = sig_var / (snr * (1 + (noisy_scale-1)/(ensemble_size[_m_idx] + 1)))
-                                            noise_covariance = np.diag(sigma_sqr/noisy_scale * np.ones([ensemble_size[_m_idx] + 1, ]))
-                                            noise_covariance[0, 0] = sigma_sqr
-                                        elif sigma_profile_type == "noiseless_even":
-                                            sigma_sqr = sig_var / ((1 + (noisy_scale-1)/2) * snr)
-                                            sigma_profile = sigma_sqr * np.ones([ensemble_size[_m_idx] + 1, ])
-                                            sigma_profile[1::2] *= noisy_scale
-                                            noise_covariance = np.diag(sigma_profile)
+                                        noise_covariance = get_noise_covmat(y_train, ensemble_size[_m_idx]+1, snr_db, noisy_scale)
 
                                         # - - - NON-ROBUST / ROBUST GRADIENT BOOSTING - - -
                                         rgb_nr = rGradBoost(X=X_train, y=y_train, max_depth=tree_max_depth,
@@ -288,13 +285,7 @@ if reg_algo == "Bagging":
         for data_type in data_type_vec:
                 print("- - - dataset: " + str(data_type) + " - - -")
                 # Dataset preparation
-                X, y = aux.get_dataset(data_type=data_type, n_samples=n_samples, noise=train_noise)
-                perm = rng.permutation(len(X))
-                X, y = X.to_numpy()[perm], y.to_numpy()[perm]
-                if (len(X.shape) == 1) or (X.shape[1] == 1):
-                    X = X.reshape(-1, 1)
-                y = y.reshape(-1, 1)
-
+                X, y = aux.get_dataset(data_type=data_type, n_samples=n_samples, noise=train_noise, rng=rng)
                 kf = KFold(n_splits=KFold_n_splits, random_state=None, shuffle=False)
                 y_train_avg, y_test_avg = [], []
 
@@ -343,20 +334,7 @@ if reg_algo == "Bagging":
                                         print("snr " + " = " + "{0:0.3f}".format(snr_db) + ": ", end=" ")
 
                                         # Set noise variance
-                                        snr = 10 ** (snr_db / 10)
-                                        sig_var = np.mean(np.abs(y_train)**2)  # np.var(y_train)
-                                        if sigma_profile_type == "uniform":
-                                            sigma_sqr = sig_var / snr
-                                            noise_covariance = np.diag(sigma_sqr * np.ones([ensemble_size[_m_idx], ]))
-                                        elif sigma_profile_type == "single_noisy":
-                                            sigma_sqr = sig_var / (snr * (1 + (noisy_scale-1)/ensemble_size[_m_idx]))
-                                            noise_covariance = np.diag(sigma_sqr/noisy_scale * np.ones([ensemble_size[_m_idx], ]))
-                                            noise_covariance[0, 0] = sigma_sqr
-                                        elif sigma_profile_type == "noiseless_even":
-                                            sigma_sqr = sig_var / ((1 + (noisy_scale-1)/2) * snr)
-                                            sigma_profile = sigma_sqr * np.ones([ensemble_size[_m_idx], ])
-                                            sigma_profile[1::2] *= noisy_scale
-                                            noise_covariance = np.diag(sigma_profile)
+                                        noise_covariance = get_noise_covmat(y_train, ensemble_size[_m_idx], snr_db, noisy_scale)
 
                                         # - - - NON-ROBUST / ROBUST BAGGING - - -
                                         noisy_reg = rBaggReg(cln_reg,   noise_covariance, _m, bagging_method,           gd_tol, gd_learn_rate_dict[data_type], gd_decay_rate, bag_regtol_dict[data_type])
@@ -364,11 +342,11 @@ if reg_algo == "Bagging":
 
                                         # Fitting on training data with noise: non-robust and robust
                                         if criterion == "mse":
-                                                noisy_reg.fit_mse(X_train, y_train[:, 0])
-                                                noisy_rreg.fit_mse(X_train, y_train[:, 0])
+                                            noisy_reg.fit_mse(X_train, y_train[:, 0])
+                                            noisy_rreg.fit_mse(X_train, y_train[:, 0])
                                         elif criterion == "mae":
-                                                noisy_reg.fit_mae(X_train, y_train[:, 0])
-                                                noisy_rreg.fit_mae(X_train, y_train[:, 0])
+                                            noisy_reg.fit_mae(X_train, y_train[:, 0])
+                                            noisy_rreg.fit_mae(X_train, y_train[:, 0])
                                         # - - - - - - - - - - - - - - - - -
 
                                         # - - - Calculate lower/upper bounds - - -

@@ -68,9 +68,11 @@ def get_dataset(data_type=None, n_samples=100, noise=0.1, rng=np.random.default_
         # Standartization of dataset
         X, y = (X - X.mean()) / X.std(), (y - y.mean()) / y.std()
         # Randomize data order
-        # perm_idx = np.random.permutation(len(y))
-        # y = y[perm_idx]
-        # X = X[perm_idx][:]
+        perm = rng.permutation(len(X))
+        X, y = X.to_numpy()[perm], y.to_numpy()[perm]
+        if (len(X.shape) == 1) or (X.shape[1] == 1):
+            X = X.reshape(-1, 1)
+        y = y.reshape(-1, 1)
         return X, y
 
 def partition_dataset(data_type=None, test_size=0.2, n_samples=100, noise=0.1):

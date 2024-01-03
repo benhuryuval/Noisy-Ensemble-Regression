@@ -213,7 +213,7 @@ class rBaggReg:  # Robust Bagging Regressor
             self.fit_mae(X, y)
         return self
 
-    def predict(self, X, weights=None, rng = np.random.default_rng(seed=42)):
+    def predict(self, X, weights=None, rng=np.random.default_rng(seed=42), noiseless=False):
         if weights is None:
             weights = self.weights
 
@@ -224,6 +224,8 @@ class rBaggReg:  # Robust Bagging Regressor
 
         # Generate noise
         pred_noise = rng.multivariate_normal(np.zeros(self.n_base_estimators), self.noise_covariance, len(X))
+        if noiseless:
+            pred_noise *= 0
 
         # Return integrated noisy predictions
         return weights.dot(base_prediction + pred_noise.T).T
