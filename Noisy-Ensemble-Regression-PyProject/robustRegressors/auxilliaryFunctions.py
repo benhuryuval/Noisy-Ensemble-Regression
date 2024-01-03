@@ -19,10 +19,10 @@ def f(data_type='sin', n_samples=100, X=None, rng=np.random.default_rng(seed=42)
                 if X == None:
                     X = np.linspace(0, 6, n_samples)[:, np.newaxis]
                 f = np.sin(X).ravel() + np.sin(6 * X).ravel()
-                n_outliers = round(n_samples/100)
+                n_outliers = round(n_samples/20)
                 outlier_idxs, outlier_vals = rng.integers(n_samples, size=n_outliers), rng.integers(1, size=n_outliers)
                 f[outlier_idxs] = outlier_vals * np.max(f) + (1-outlier_vals) * np.min(f)
-                f[outlier_idxs] *= 0
+                # f[outlier_idxs] *= 0
         return X, f
 
 def generate(data_type=None, n_samples=100, noise=0.0, n_repeat=1, rng=np.random.default_rng(seed=42)):

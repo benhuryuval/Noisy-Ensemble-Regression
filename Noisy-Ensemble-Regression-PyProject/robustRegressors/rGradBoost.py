@@ -323,7 +323,7 @@ class rGradBoost:
         plt.xlabel('x')
         plt.ylabel('y')
 
-    def fit_mse_noisy(self, X, y, m: int = 10):
+    def fit_mse_noisy(self, X, y, m: int = 10, rng=np.random.default_rng(seed=42)):
         """
         Train ensemble members using GradientBoosting with MSE and noisy regressors (not robustly)
         """
@@ -357,26 +357,24 @@ class rGradBoost:
 
             # Setting the weak learner weight
             if self.criterion == "mse":
-                # calculate \sum_{\tau=1}^{t-1} \alpha_\tau * \tilde{phi}_\tau
-                sum_a_phi = np.zeros((X.shape[0],1))
-                for _m in range(self.cur_m):
-                    noise = rng.multivariate_normal(np.zeros(self.cur_m),
-                                                          self.TrainNoiseCov[_m, _m],
-                                                          X.shape[0])
-                    tilde_phi = self._predictions_all_wl[:, _m, np.newaxis] + noise
-                    sum_a_phi += self.gamma[_m] * tilde_phi
-                # calculate \alpha_t * \tilde{phi}_t
+                # calculate A
+                phi_t = self._predictions_wl
+                A = np.mean(phi_t**2, keepdims=True)
+                # calculate B
                 noise = rng.multivariate_normal(np.zeros(1),
-                                                      [[self.TrainNoiseCov[self.cur_m, self.cur_m]]],
-                                                      X.shape[0])
-                tilde_phi_t = self._predictions_wl + noise
-                # solve weight polynomial
-                y_minus_f = np.subtract(y, sum_a_phi)
-                C = np.mean(y_minus_f**2, keepdims=True)
-                B = -2*np.mean(np.multiply(y_minus_f, tilde_phi_t), keepdims=True)
-                A = np.mean(tilde_phi_t**2, keepdims=True)
-
-                new_gamma =(-B + np.sqrt(B**2 - 4*A*C)) / (2*A)
+                                                [[self.TrainNoiseCov[self.cur_m, self.cur_m]]],
+                                                y.shape[0])
+                e_t = self._residuals + noise
+                B = -2 * np.mean(np.multiply(e_t, phi_t), keepdims=True)
+                # calculate C
+                C = np.mean(e_t**2, keepdims=True)
+                # solve coefficient polynomial
+                new_gamma = -B / (2*A)
+                if False:
+                    import matplotlib.pyplot as plt
+                    alpha = np.arange(-10,10,0.01)
+                    fig_parabola = plt.figure(figsize=(12, 8))
+                    plt.plot(alpha, A[0]*alpha**2 + B[0]*alpha + C[0])
             else:
                 raise Exception("Invalid criterion for noisy training")
 

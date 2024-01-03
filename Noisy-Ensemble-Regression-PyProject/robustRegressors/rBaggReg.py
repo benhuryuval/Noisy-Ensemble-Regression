@@ -27,7 +27,7 @@ class rBaggReg:  # Robust Bagging Regressor
         self.gd_tol, self.learn_rate, self.decay_rate = gd_tol, learn_rate, decay_rate
         self.bag_tol = bag_tol
 
-    def fit_mse(self, X, y):
+    def fit_mse(self, X, y, lamda=1):
 
         # Train bagging regressor
         self.bagging_regressor.fit(X, y)
@@ -92,7 +92,7 @@ class rBaggReg:  # Robust Bagging Regressor
             base_prediction = np.zeros([self.n_base_estimators, len(y)])
             for k, base_estimator in enumerate(self.bagging_regressor.estimators_):
                 base_prediction[k, :] = base_estimator.predict(X)
-            self.weights = np.linalg.inv(base_prediction.dot(base_prediction.T)/len(y) + self.noise_covariance).dot(base_prediction).dot(y)/len(y)  # least-squares
+            self.weights = np.linalg.inv(base_prediction.dot(base_prediction.T)/len(y) + lamda*self.noise_covariance).dot(base_prediction).dot(y)/len(y)  # least-squares
 
         else:
             print('Invalid integration type.')
@@ -189,7 +189,7 @@ class rBaggReg:  # Robust Bagging Regressor
             # self.weights = self.weights / np.sum(self.weights)  # TODO: this is just to debug lower bound
 
             # # DEBUG # #
-            if False:  # False True:
+            if True:  # False True:
                 import matplotlib.pyplot as plt
                 fig, ax = plt.figure("Cost evolution", figsize=(8, 6), dpi=300), plt.axes()
                 plt.plot(cost_evolution[0:stop_iter])
