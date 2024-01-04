@@ -189,7 +189,7 @@ class rBaggReg:  # Robust Bagging Regressor
             # self.weights = self.weights / np.sum(self.weights)  # TODO: this is just to debug lower bound
 
             # # DEBUG # #
-            if True:  # False True:
+            if False:
                 import matplotlib.pyplot as plt
                 fig, ax = plt.figure("Cost evolution", figsize=(8, 6), dpi=300), plt.axes()
                 plt.plot(cost_evolution[0:stop_iter])
