@@ -4,14 +4,30 @@ import os  # from os.path import exists
 import numpy as np
 
 data_type_vec = ["sin", "exp", "make_reg", "diabetes", "white-wine", "kc_house_data"]
-# data_type_vec = ["sin", "exp", "make_reg"]
+T = 16
 criterion = "mae"  # "mse" / "mae"
-reg_algo = "GradBoost"  # "GradBoost" / "Bagging"
+reg_algo = "Bagging"  # "GradBoost" / "Bagging"
 bagging_method = "gem"  # "bem" / "gem"
 sigma_profile_type = "noiseless_even"  # "noiseless_even" / "uniform"
-T = 16
 
-results_path = "Results//2023_12_09//" + str(T) + "_" + criterion + "_" + sigma_profile_type + "//"
+criterion, reg_algo, bagging_method, sigma_profile_type = "mse", "Bagging", "bem", "uniform"
+criterion, reg_algo, bagging_method, sigma_profile_type = "mse", "Bagging", "lr", "uniform"
+criterion, reg_algo, bagging_method, sigma_profile_type = "mse", "GradBoost", "gem", "uniform"
+#
+criterion, reg_algo, bagging_method, sigma_profile_type = "mae", "Bagging", "bem", "uniform"
+criterion, reg_algo, bagging_method, sigma_profile_type = "mae", "Bagging", "gem", "uniform"
+criterion, reg_algo, bagging_method, sigma_profile_type = "mae", "GradBoost", "gem", "uniform"
+#
+criterion, reg_algo, bagging_method, sigma_profile_type = "mse", "Bagging", "bem", "noiseless_even"
+criterion, reg_algo, bagging_method, sigma_profile_type = "mse", "Bagging", "lr", "noiseless_even"
+criterion, reg_algo, bagging_method, sigma_profile_type = "mse", "GradBoost", "gem", "noiseless_even"
+#
+criterion, reg_algo, bagging_method, sigma_profile_type = "mae", "Bagging", "bem", "noiseless_even"
+criterion, reg_algo, bagging_method, sigma_profile_type = "mae", "Bagging", "gem", "noiseless_even"
+criterion, reg_algo, bagging_method, sigma_profile_type = "mae", "GradBoost", "gem", "noiseless_even"
+
+exp_name = "_".join((str(T), criterion, sigma_profile_type, reg_algo.lower(), bagging_method))
+results_path = os.path.join("Results", "2024_01_12", exp_name)
 
 # # # # # # Robust vs non-robust MSE
 data_label = {
@@ -22,11 +38,8 @@ data_label = {
     "diabetes": "Diabetes",
     "white-wine": "Wine"
 }
-
-if reg_algo == "Bagging":
-    figname = criterion.upper() + "_" + reg_algo + "_" + bagging_method.upper() + "_" + sigma_profile_type + "_RobustVsNonrobust"
-elif reg_algo == "GradBoost":
-    figname = criterion.upper() + "_" + reg_algo + "_" + sigma_profile_type + "_RobustVsNonrobust"
+figname = "_".join((exp_name, "RobustVsNonrobust"))
+plt.rcParams['text.usetex'] = True
 fig, ax = plt.figure(figname,
                      figsize=(8, 6), dpi=300), plt.axes()
 plt.xlabel('SNR [dB]', fontsize=18)
@@ -34,10 +47,10 @@ plt.ylabel(criterion.upper()+' Gain [dB]', fontsize=18)
 
 for data_type_idx, data_type in enumerate(data_type_vec):
     if reg_algo == "Bagging":
-        fname = str(T) + "_" + criterion + "_" + sigma_profile_type + "_" + data_type + "_" + "bagging" + "_" + bagging_method + ".csv"
+        fname = "_".join((str(T), criterion, sigma_profile_type, data_type, reg_algo.lower(), bagging_method)) + ".csv"
     elif reg_algo == "GradBoost":
-        fname = str(T) + "_" + criterion + "_" + sigma_profile_type + "_" + data_type + "_" + "gbr" + ".csv"
-    path_to_file = results_path + fname
+        fname = "_".join((str(T), criterion, sigma_profile_type, data_type, "gbr")) + ".csv"
+    path_to_file = os.path.join(results_path, fname)
     if os.path.exists(path_to_file):
         err_results_df = pd.read_csv(path_to_file)
     else:
@@ -55,7 +68,7 @@ for data_type_idx, data_type in enumerate(data_type_vec):
     # fig.set_size_inches(6.4, 4.8, forward=True)
     # fig.set_dpi(300)
     plt.show(block=False)
-    fig.savefig(fig.get_label()+".png")
+    # fig.savefig(fig.get_label()+".png")
 
     # plt.figure(figsize=(12, 8))
     # plt.plot(snr_db_vec, err_results_df[reg_algo+', Non-Robust'], '-xr', label='Non-robust')
@@ -66,7 +79,8 @@ for data_type_idx, data_type in enumerate(data_type_vec):
     # plt.legend()
     # plt.show(block=False)
 
-fig.savefig(results_path+fig.get_label()+".png")
+fig.savefig(os.path.join(results_path, fig.get_label()+".png"))
+fig.savefig(os.path.join("Results", "2024_01_12", fig.get_label()+".png"))
 
 # # # # # # GB vs BAGGING
 if False:
@@ -95,15 +109,14 @@ if False:
 
 # # # # # # Plot bounds for MAE, Bagging w\ normalized weights
 if criterion.upper() == "MAE" and reg_algo == "Bagging":
-    figname = criterion.upper() + "_" + reg_algo + "_" + bagging_method.upper() + "_" + sigma_profile_type + "_Bounds"
+    figname = exp_name + "_Bounds"
     fig, ax = plt.figure(figname, figsize=(8, 6), dpi=300), plt.axes()
     plt.xlabel("SNR [dB]", fontsize=18)
     plt.ylabel("NMAE [dB]", fontsize=18)
 
     for data_type_idx, data_type in enumerate(data_type_vec):
-        if reg_algo == "Bagging":
-            fname = str(T) + "_" + criterion + "_" + sigma_profile_type + "_" + data_type + "_" + "bagging" + "_" + bagging_method + ".csv"
-        path_to_file = results_path + fname
+        fname = "_".join((str(T), criterion, sigma_profile_type, data_type, reg_algo.lower(), bagging_method)) + ".csv"
+        path_to_file = os.path.join(results_path, fname)
         if os.path.exists(path_to_file):
             err_results_df = pd.read_csv(path_to_file)
         else:
@@ -132,7 +145,8 @@ if criterion.upper() == "MAE" and reg_algo == "Bagging":
     order = 1+idxs  #np.concatenate((idxs, 1+idxs))  # specify order of items in legend
     plt.legend([handles[idx] for idx in order], [labels[idx] for idx in order], fontsize=12, ncol=1)  # add legend to plot
 
-    fig.savefig(results_path+fig.get_label()+".png")
+    fig.savefig(os.path.join(results_path, fig.get_label()+".png"))
+    fig.savefig(os.path.join("Results", "2024_01_12", fig.get_label()+".png"))
 
 
 # # # # # # # # # # # # # # # # # # # # #

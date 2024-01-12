@@ -26,13 +26,7 @@ import robustRegressors.auxilliaryFunctions as aux
 rng = np.random.default_rng(seed=42)
 results_path = "Results//"
 
-ensemble_size = [16]  # [16, 64] # [5] # Number of weak-learners
-tree_max_depth = 5  # Maximal depth of decision tree
-min_sample_leaf = 1
-
-data_type_vec = ["sin", "exp", "diabetes", "make_reg", "white-wine", "kc_house_data"]
-KFold_n_splits = 4  # Number of k-fold x-validation dataset splits
-n_repeat = 75  # Number of iterations for estimating expected performance
+n_repeat = 100  # Number of iterations for estimating expected performance
 n_samples = 1000  # Size of the (synthetic) dataset  in case of synthetic dataset
 train_noise = 0.01  # Standard deviation of the measurement / training noise in case of synthetic dataset
 
@@ -102,15 +96,149 @@ def get_noise_covmat(y_train, _m=1, snr_db=0, noisy_scale=1):
         sigma_profile[1::2] *= noisy_scale
         noise_covariance = np.diag(sigma_profile)
     return noise_covariance
+
+data_type_name = {"sin":"Sine", "exp":"Exp", "diabetes":"Diabetes", "make_reg":"Linear", "white-wine":"Wine", "kc_house_data":"King County"}
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 ####################################################
 ####################################################
 
 ####################################################
+# 0: Noisy vs Noiseless prediction on Sin and Exp datasets
+####################################################
+enable_flag_0 = False
+if enable_flag_0:
+    ensemble_size, tree_max_depth, min_sample_leaf = [5], 8, 1
+    reg_algo, bagging_method, criterion = "Bagging", "gem", "mse"  # "GradBoost" / "Bagging"
+    snr_db_vec = [-6]
+    sigma_profile_type = "single_noisy"  # uniform / single_noisy / noiseless_even
+    data_type_vec = ["sin", "exp"]
+    KFold_n_splits = 4  # Number of k-fold x-validation dataset splits
+    gd_learn_rate_dict, gd_learn_rate_dict_r, gd_tol, gd_decay_rate, bag_regtol_dict = getGradDecParams(reg_algo)
+    noisy_scale = 20
+
+    for data_type in data_type_vec:
+        print("- - - dataset: " + str(data_type) + " - - -")
+        # Dataset preparation
+        X, y = aux.get_dataset(data_type=data_type, n_samples=n_samples, noise=train_noise, rng=rng)
+        kf = KFold(n_splits=KFold_n_splits, random_state=None, shuffle=False)
+        y_train_avg, y_test_avg = [], []
+
+        for _m_idx, _m in enumerate(ensemble_size):
+            print("T=" + str(_m) + " regressors")
+
+            err_cln = np.zeros((len(snr_db_vec), len(ensemble_size), KFold_n_splits))
+            err_nr, err_r = np.zeros_like(err_cln), np.zeros_like(err_cln)
+
+            kfold_idx = -1
+            for train_index, test_index in kf.split(X):
+                # - - - Load data
+                print("\nTRAIN:", train_index[0], " to ", train_index[-1], "\nTEST:", test_index[0], " to ", test_index[-1])
+                X_train, X_test = X[train_index], X[test_index]
+                y_train, y_test = y[train_index], y[test_index]
+                kfold_idx += 1
+
+                y_train_avg.append(np.nanmean(np.abs(y_train)))
+                y_test_avg.append(np.nanmean(np.abs(y_test)))
+
+                # - - - CLEAN BAGGING - - -
+                # Initiating the tree
+                if criterion == "mse":
+                    cln_reg = sklearn.ensemble.BaggingRegressor(
+                        sk.tree.DecisionTreeRegressor(max_depth=tree_max_depth),
+                        n_estimators=_m, random_state=0)
+                elif criterion == "mae":
+                    cln_reg = sklearn.ensemble.BaggingRegressor(
+                        sk.tree.DecisionTreeRegressor(max_depth=tree_max_depth,
+                                                      criterion="mae"),
+                        n_estimators=_m, random_state=0)
+
+                # Fitting on training data
+                cln_reg.fit(X_train, y_train[:, 0])
+
+                # Predicting without noise (for reference)
+                pred_cln = cln_reg.predict(X_test)
+                err_cln[:, _m_idx, kfold_idx] = aux.calc_error(y_test, pred_cln, criterion)
+                # - - - - - - - - - - - - - - - - -
+
+                for idx_snr_db, snr_db in enumerate(snr_db_vec):
+                    print("snr " + " = " + "{0:0.3f}".format(snr_db) + ": ", end=" ")
+
+                    # Set noise variance
+                    noise_covariance = get_noise_covmat(y_train, ensemble_size[_m_idx], snr_db, noisy_scale)
+
+                    # - - - NON-ROBUST / ROBUST BAGGING - - -
+                    noisy_reg = rBaggReg(cln_reg, noise_covariance, _m, bagging_method, gd_tol,
+                                         gd_learn_rate_dict[data_type], gd_decay_rate, bag_regtol_dict[data_type])
+                    noisy_rreg = rBaggReg(cln_reg, noise_covariance, _m, "robust-" + bagging_method, gd_tol,
+                                          gd_learn_rate_dict[data_type], gd_decay_rate, bag_regtol_dict[data_type])
+
+                    # Fitting on training data with noise: non-robust and robust
+                    if criterion == "mse":
+                        noisy_reg.fit_mse(X_train, y_train[:, 0])
+                        noisy_rreg.fit_mse(X_train, y_train[:, 0])
+                    elif criterion == "mae":
+                        noisy_reg.fit_mae(X_train, y_train[:, 0])
+                        noisy_rreg.fit_mae(X_train, y_train[:, 0])
+                    # - - - - - - - - - - - - - - - - -
+
+                    # Plotting all the points
+                    if X_train.shape[1] == 1 and kfold_idx == 0:
+                        # with plt.style.context(['science', 'grid']):
+                        n_repeat_plt = 25
+                        fontsize = 18
+                        plt.rcParams.update({'font.size': fontsize})
+                        plt.rcParams['text.usetex'] = True
+                        fig, axe = plt.subplots(figsize=(1.25 * 8.4, 1.25 * 8.4))
+                        # px = 1 / plt.rcParams['figure.dpi']
+                        # fig, axe = plt.subplots(figsize=(1.25 * 8.4 * px, 1.25 * 8.4 * px))
+                        fig.set_label(data_type + "_example")
+                        y_pred = np.zeros([X_test.shape[0], n_repeat_plt])
+                        sort_idxs_test = np.argsort(X_test[:, 0])
+                        sort_idxs_train = np.argsort(X_train[:, 0])
+                        for _n in range(0, n_repeat_plt):
+                            y_pred[:, _n] = noisy_reg.predict(X_test[sort_idxs_test], rng=rng)  # [:, 0]
+                        X_test_ravel = np.repeat(X_test[sort_idxs_test, 0], n_repeat_plt)
+                        plt.plot(X_test_ravel, y_pred.ravel(), linestyle='', marker='x', color='r',
+                                 label='Test: Noisy prediction', markersize=6.0, alpha=0.25)
+                        # plt.plot(X_train[sort_idxs_train, 0], y_train[sort_idxs_train, 0], linestyle='-', label='Train',
+                        #          linewidth=8.0)
+                        plt.plot(X_test[sort_idxs_test, 0], y_test[sort_idxs_test, 0], linestyle='-', color='k',
+                                 label='Test: Ground truth', linewidth=2.0)
+                        plt.plot(X_test[sort_idxs_test, 0], pred_cln[sort_idxs_test], linestyle='', marker='o', color='k',
+                                 label='Test: Noiseless prediction', linewidth=2.0, markersize=6.0)
+                        plt.xlabel('x')
+                        plt.ylabel('y')
+                        plt.title('Regression ensemble of $T=' + str(_m) + '$ at $SNR=' + str(snr_db) + '$[dB]')
+                        handles, labels = plt.gca().get_legend_handles_labels()
+                        # order = [1, 2, 3, 0]
+                        order = [1, 2, 0]
+                        plt.legend([handles[idx] for idx in order], [labels[idx] for idx in order], loc='upper right')
+                        plt.grid()
+                        mse_cln, mae_cln = aux.calc_error(y_test[sort_idxs_test, 0], pred_cln[sort_idxs_test],
+                                                          'mse'), aux.calc_error(y_test[sort_idxs_test, 0],
+                                                                                 pred_cln[sort_idxs_test], 'mae')
+                        y_test_ravel = np.repeat(y_test[sort_idxs_test, 0], n_repeat_plt)
+                        mse_pred, mae_pred = aux.calc_error(y_test_ravel, y_pred.ravel(), 'mse'), aux.calc_error(
+                            y_test_ravel, y_pred.ravel(), 'mae')
+                        if data_type == "sin":
+                            xloc, yloc = -1.5, -2.0
+                        elif data_type == "exp":
+                            xloc, yloc = -1.5, -1.5
+                        plt.text(xloc, yloc,
+                                 "MSE (Noiseless): " + "{0:.2f}".format(mse_cln) + "\nMSE (Noisy): " + "{0:.2f}".format(
+                                     mse_pred) + "\n" \
+                                 + "MAE (Noiseless): " + "{0:.2f}".format(mae_cln) + "\nMAE (Noisy): " + "{0:.2f}".format(
+                                     mae_pred) + "",
+                                 fontsize=fontsize,
+                                 bbox=dict(facecolor='green', alpha=0.1))
+                        plt.show(block=False)
+                        fig.savefig(fig.get_label() + ".png")
+
+####################################################
 # 1: Distribution of coefficients across Bagging ensembles
 ####################################################
-enable_flag_1 = True
+enable_flag_1 = False
 if enable_flag_1:
     reg_algo, bagging_method, criterion = "Bagging", "lr", "mse"
     gd_learn_rate_dict, gd_learn_rate_dict_r, gd_tol, gd_decay_rate, bag_regtol_dict = getGradDecParams(reg_algo)
@@ -119,6 +247,7 @@ if enable_flag_1:
     sigma_profile_type_vec = ["uniform", "noiseless_even"]
     _m = ensemble_size[0]
     snr_db, noisy_scale = 10, 20
+    KFold_n_splits = 4
     plot_flag = True
 
     for _profile_idx, sigma_profile_type in enumerate(sigma_profile_type_vec):
@@ -184,35 +313,42 @@ if enable_flag_1:
 
             # Plotting distributions of coefficients
             if _profile_idx == 0 and _ds_idx == 0:
+                plt.rcParams['text.usetex'] = True
                 fig, axes = plt.subplots(nrows=2, ncols=2, figsize=(12, 8))
                 axes_flat = axes.flatten()
                 colors = ['blue', 'red', 'green', 'tan']
                 hatches = ["//", "++", "..", "xx"]
                 edges = np.arange(-0.150, 0.275, 0.025/2)
+            fig.set_label("coefficients_histograms")
             ax = axes[_ds_idx, _profile_idx]
             n, bins, patches = ax.hist(coefs_nr[_ds_idx], bins=edges, label=data_type, color=colors[0:kf.n_splits], density=True, stacked=True, histtype='bar')
             # ax.hist(coefs_nr[_ds_idx], nbins, label=data_type, color=colors[0:kf.n_splits], density=True, stacked=False, histtype='step', fill=False)
             for patch_set, hatch in zip(patches, hatches):
                 for patch in patch_set.patches:
                     patch.set_hatch(hatch)
-            ax.set_title(data_type+", "+sigma_profile_type)
+            if sigma_profile_type == "uniform":
+                ax.set_title("Dataset: " + data_type_name[data_type] + ", " + "Noise: Equi-Variance")
+            elif sigma_profile_type == "noiseless_even":
+                ax.set_title("Dataset: " + data_type_name[data_type] + ", " + "Noise: Noisy subset, m=2")
             # ax.set_xlabel('Values')
             # ax.set_ylabel('Counts')
             plt.show(block=False)
             # plt.title(sigma_profile_type)
             # plt.setp(axes, xlim=[-0.05, 0.25])
+            fig.savefig(fig.get_label() + ".png")
     print("---------------------------------------------------------------------------\n")
 
 ####################################################
 # 2: rGB vs noisy training
 ####################################################
-enable_flag_2 = False
+enable_flag_2 = True
 if enable_flag_2:
     reg_algo, bagging_method, criterion = "GradBoost", "gem", "mse"
     gd_learn_rate_dict, gd_learn_rate_dict_r, gd_tol, gd_decay_rate, bag_regtol_dict = getGradDecParams(reg_algo)
     _m, tree_max_depth, min_sample_leaf = 24, 5, 1
     sigma_profile_type = "noiseless_even"  # uniform / single_noisy / noiseless_even (for GradBoost)
     snr_db_vec, noisy_scale = np.linspace(-25, 25, 10), 20
+    KFold_n_splits = 4
     data_type_vec = ["kc_house_data"]
 
     for data_type in data_type_vec:
@@ -309,17 +445,22 @@ if enable_flag_2:
 
         # Plot error comparison
         if True:
-            plt.figure(figsize=(12, 8))
+            plt.rcParams['text.usetex'] = True
+            fontsize = 18
+            plt.rcParams.update({'font.size': fontsize})
+            fig = plt.figure(figsize=(12, 8))
+            fig.set_label("rGB_vs_NoisyTraining")
             # plt.plot(snr_db_vec, 10 * np.log10(err_cln[:, :].mean(1)), '-k', label='Clean')
             plt.plot(snr_db_vec, err_r[:, :].mean(1), '-ob', label='Robust Gradient Boosting (This work)')
             plt.plot(snr_db_vec, err_nr[:, :].mean(1), '-xr', label='Gradient Boosting (non-robust)')
             plt.plot(snr_db_vec, err_nt[:, :].mean(1), '-dy', label='Noisy Training')
-            plt.title("dataset: " + str(data_type) + ", T=" + str(_m) + " regressors\nnoise=" + sigma_profile_type)
+            # plt.title("dataset: " + str(data_type) + ", T=" + str(_m) + " regressors\nnoise=" + sigma_profile_type)
             plt.xlabel('SNR [dB]')
             plt.ylabel('MSE')
             plt.legend()
             plt.grid(visible=True)
             plt.show(block=False)
+            fig.savefig(fig.get_label() + ".png")
         print("---------------------------------------------------------------------------\n")
 
 ####################################################
@@ -395,7 +536,7 @@ if enable_flag_3:
             # # # # # # # # # # # # # # # # # # # # # # # # # #
             if kfold_idx == 1:
                 fig = plt.figure(figsize=(12, 8))
-                fig.set_label(data_type + "_example")
+                fig.set_label(data_type + "_example, " + "_m=" + "{:d}".format(_m) + ", SNR=" + "{:.2f}".format(snr_db))
                 fontsize = 18
                 plt.rcParams.update({'font.size': fontsize})
                 plt.plot(X_train[:, 0], y_train, 'x', label="Train")
@@ -403,19 +544,18 @@ if enable_flag_3:
                          label="Noiseless, " + "MAE=" + "{:.3f}".format(
                              err_cln[kfold_idx]))
                 plt.plot(X_test[:, 0], pred_r_mae, 'o',
-                         label="MAE-optimized Robust Bagging (This work), " + "MAE=" + "{:.3f}".format(
+                         label="MAE-optimized Robust Bagging, " + "MAE=" + "{:.3f}".format(
                              err_r_mae[kfold_idx]))
                 plt.plot(X_test[:, 0], pred_mis, 'd',
-                         label="MSE-optimized Robust Bagging (This work), " + "MAE=" + "{:.3f}".format(
+                         label="MSE-optimized Robust Bagging, " + "MAE=" + "{:.3f}".format(
                              err_mis[kfold_idx]))
                 plt.plot(X_test[:, 0], pred_nr_mae, 'o',
                          label="Bagging (non-robust), " + "MAE=" + "{:.3f}".format(
                              err_nr_mae[kfold_idx]))
-                plt.title("_m=" + "{:d}".format(_m) + ", SNR=" + "{:.2f}".format(snr_db))
-                plt.xlabel('x')
-                plt.ylabel('y')
-                plt.legend()
+                plt.xlabel('x'), plt.ylabel('y'), plt.legend(loc='upper right')
+                plt.rcParams['text.usetex'] = True
                 plt.show(block=False)
+                fig.savefig("Mismatched" + ".png")
             # # # # # # # # # # # # # # # # # # # # # # # # # #
 
             err_gain = err_mis[kfold_idx] / err_r_mae[kfold_idx]
@@ -433,9 +573,11 @@ if enable_flag_4:
     gd_learn_rate_dict, gd_learn_rate_dict_r, gd_tol, gd_decay_rate, bag_regtol_dict = getGradDecParams(reg_algo)
     ensemble_size, tree_max_depth, min_sample_leaf = [8], 5, 1
     data_type_vec, sigma_profile_type = ["sin", "exp", "diabetes", "make_reg", "white-wine", "kc_house_data"], "uniform"
+    # data_type_vec, sigma_profile_type = ["sin", "diabetes"], "uniform"
     _m, n_repeat = ensemble_size[0], 100
-    snr_db_vec, noisy_scale = [-10], 20
-    lamda_vec = np.arange(0, 1, 0.01)
+    snr_db_vec, noiseless_ratio = [-6], 2  # 4 -> every 4th sub-regressor is noiseless
+    lamda_vec = np.arange(0, 3, 0.01)
+    KFold_n_splits = 2
 
     for data_type_idx, data_type in enumerate(data_type_vec):
         print("- - - dataset: " + str(data_type) + " - - -")
@@ -454,7 +596,7 @@ if enable_flag_4:
             # Predicting without noise (for reference)
             for idx_snr_db, snr_db in enumerate(snr_db_vec):
                 print("snr " + " = " + "{0:0.3f}".format(snr_db) + ": ", end=" ")
-                noise_covariance = get_noise_covmat(y_train, _m, snr_db, noisy_scale)  # Set noise covariance
+                noise_covariance = get_noise_covmat(y_train, _m, snr_db)  # Set noise covariance
                 noisy_rreg = []
                 for lidx, lamda in enumerate(lamda_vec):
                     noisy_rreg.append(rBaggReg(cln_reg, noise_covariance, _m, "robust-" + bagging_method, gd_tol,
@@ -462,7 +604,7 @@ if enable_flag_4:
                     noisy_rreg[lidx].fit_mse(X_train, y_train[:, 0], lamda=lamda)
                     # Prediction and error calculation
                     for _n in range(0, n_repeat):
-                        if np.mod(_n, 4) == 0:
+                        if np.mod(_n, noiseless_ratio) == 0:
                             noiseless = False
                         else:
                             noiseless = True
@@ -474,11 +616,13 @@ if enable_flag_4:
                 kfold_idx += 1
         if data_type_idx == 0:
             fig = plt.figure(figsize=(12, 8))
-            fig.set_label(data_type + "_example")
+            fig.set_label("Lambda_example_" + "T=" + "{:d}".format(_m) + ", SNR=" + "{:.2f}".format(snr_db))
             fontsize = 18
-        plt.plot(lamda_vec, np.mean(err[idx_snr_db, :, :], axis=0), label=data_type)
-        plt.title("_m=" + "{:d}".format(_m) + ", SNR=" + "{:.2f}".format(snr_db))
-        plt.xlabel('\lambda'), plt.ylabel('MSE'), plt.legend(), plt.grid(visible=True)
+        plt.plot(lamda_vec, np.mean(err[idx_snr_db, :, :], axis=0), label=data_type_name[data_type])
+        plt.xlabel('$\lambda$'), plt.ylabel('MSE'), plt.legend(), plt.grid(visible=True)
         plt.rcParams.update({'font.size': fontsize}), plt.show(block=False)
+        plt.rcParams['text.usetex'] = True
 
         print("---------------------------------------------------------------------------\n")
+
+    fig.savefig(fig.get_label() + ".png")

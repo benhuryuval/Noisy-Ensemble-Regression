@@ -26,7 +26,6 @@ import robustRegressors.auxilliaryFunctions as aux
 rng = np.random.default_rng(seed=42)
 plot_flag = False #True #False
 save_results_to_file_flag = True
-results_path = "Results//"
 
 KFold_n_splits = 4  # Number of k-fold x-validation dataset splits
 
@@ -44,12 +43,17 @@ n_samples = 1000  # Size of the (synthetic) dataset  in case of synthetic datase
 train_noise = 0.01  # Standard deviation of the measurement / training noise in case of synthetic dataset
 
 data_type_vec = ["sin", "exp", "diabetes", "make_reg", "white-wine", "kc_house_data"] # kc_house_data / diabetes / white-wine / sin / exp / make_reg
-data_type_vec = ["sin"]
+data_type_vec = ["kc_house_data"]
 
-criterion = "mse"  # "mse" / "mae"
-reg_algo = "Bagging"  # "GradBoost" / "Bagging"
-bagging_method = "lr"  # "bem" / "gem" / "lr"
+criterion = "mae"  # "mse" / "mae"
+reg_algo = "GradBoost"  # "GradBoost" / "Bagging"
+bagging_method = "gem"  # "bem" / "gem" / "lr"
 gradboost_robust_flag = True
+
+# Prepare results dir
+results_path = "Results//" + ensemble_size[0].__str__() + "_" + criterion + "_" + sigma_profile_type + "_" + reg_algo.lower() + "_" + bagging_method + "//"
+if not os.path.exists(results_path):
+    os.mkdir(results_path)
 
 # ====================== SETTINGS FOR EXAMPLE PLOTS =========================
 example_plots_flag = False
