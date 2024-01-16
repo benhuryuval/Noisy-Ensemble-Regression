@@ -330,6 +330,9 @@ class rGradBoost:
 
         # Iterating over the number of estimators
         for _ in range(self.cur_m+1, self.cur_m+m+1):
+            # Save previous prediction
+            yhat_prev = self.predict(X, self.TrainNoiseCov, rng=rng)
+
             # Growing the tree on the residuals
             _weak_learner = Tree(
                 max_depth=self.max_depth,
@@ -359,13 +362,14 @@ class rGradBoost:
             if self.criterion == "mse":
                 # calculate A
                 phi_t = self._predictions_wl
-                A = np.mean(phi_t**2, keepdims=True)
-                # calculate B
                 noise = rng.multivariate_normal(np.zeros(1),
                                                 [[self.TrainNoiseCov[self.cur_m, self.cur_m]]],
                                                 y.shape[0])
-                e_t = self._residuals + noise
-                B = -2 * np.mean(np.multiply(e_t, phi_t), keepdims=True)
+                tilde_phi_t = phi_t + noise
+                A = np.mean(tilde_phi_t**2, keepdims=True)
+                # calculate B
+                e_t = self.y - yhat_prev
+                B = -2 * np.mean(np.multiply(e_t, tilde_phi_t), keepdims=True)
                 # calculate C
                 C = np.mean(e_t**2, keepdims=True)
                 # solve coefficient polynomial

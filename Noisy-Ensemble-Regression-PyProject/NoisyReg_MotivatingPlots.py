@@ -460,6 +460,7 @@ if enable_flag_2:
             plt.legend()
             plt.grid(visible=True)
             plt.show(block=False)
+            plt.ylim(0, 15)
             fig.savefig(fig.get_label() + ".png")
         print("---------------------------------------------------------------------------\n")
 
@@ -618,11 +619,18 @@ if enable_flag_4:
             fig = plt.figure(figsize=(12, 8))
             fig.set_label("Lambda_example_" + "T=" + "{:d}".format(_m) + ", SNR=" + "{:.2f}".format(snr_db))
             fontsize = 18
+            plt.rcParams['text.usetex'] = True
         plt.plot(lamda_vec, np.mean(err[idx_snr_db, :, :], axis=0), label=data_type_name[data_type])
         plt.xlabel('$\lambda$'), plt.ylabel('MSE'), plt.legend(), plt.grid(visible=True)
         plt.rcParams.update({'font.size': fontsize}), plt.show(block=False)
-        plt.rcParams['text.usetex'] = True
+
 
         print("---------------------------------------------------------------------------\n")
+
+    # change legend order
+    handles, labels = plt.gca().get_legend_handles_labels()  # get handles and labels
+    order = np.array((4, 2, 5, 3, 0, 1))  # specify order of items in legend
+    plt.legend([handles[idx] for idx in order], [labels[idx] for idx in order], fontsize=fontsize,
+               ncol=1)  # add legend to plot
 
     fig.savefig(fig.get_label() + ".png")
