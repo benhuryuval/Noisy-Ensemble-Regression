@@ -127,7 +127,7 @@ class rGradBoost:
 
             # Getting the weak learner predictions
             self._predictions_wl = _weak_learner.predict(X).reshape(len(y), 1)
-            self._predictions_all_wl = np.concatenate( (self._predictions_all_wl,self._predictions_wl), axis=1)
+            self._predictions_all_wl = np.concatenate((self._predictions_all_wl, self._predictions_wl), axis=1)
 
             # # DEBUG # #
             # Fit of current weak-learner
@@ -143,17 +143,22 @@ class rGradBoost:
 
             # Setting the weak learner weight
             if self.criterion == "mse":
-                y_minus_f = np.subtract(y, self._predictions)
-                sum_phi_y_minus_f = np.mean(np.multiply(self._predictions_wl, y_minus_f), keepdims=True)
-                # if _ == 1:  # first weak-learner (after initialization)
-                #     sum_gamma_sigma = 0.0
-                # else:
-                    # gamma = self.gamma.reshape(_-1, 1)
-                prev_gamma = np.array(self.gamma[0:_])
-                prev_CovMat = np.array(self.TrainNoiseCov[0:_, _, np.newaxis])
-                sum_gamma_sigma = prev_gamma.T.dot(prev_CovMat)
-                phi_sqrd = np.mean(self._predictions_wl**2, keepdims=True)
-                new_gamma = (sum_phi_y_minus_f + self.RobustFlag * sum_gamma_sigma) / (phi_sqrd + self.RobustFlag * self.TrainNoiseCov[_, _])
+                if self.RobustFlag:
+                    y_minus_f = np.subtract(y, self._predictions)
+                    sum_phi_y_minus_f = np.mean(np.multiply(self._predictions_wl, y_minus_f), keepdims=True)
+                    prev_gamma = np.array(self.gamma[0:_])
+                    prev_CovMat = np.array(self.TrainNoiseCov[0:_, _, np.newaxis])
+                    sum_gamma_sigma = prev_gamma.T.dot(prev_CovMat)
+                    phi_sqrd = np.mean(self._predictions_wl**2, keepdims=True)
+                    new_gamma = (sum_phi_y_minus_f + sum_gamma_sigma) / (phi_sqrd + self.TrainNoiseCov[_, _])
+                else:
+                    phi_t = self._predictions_wl
+                    A = np.mean(phi_t ** 2, keepdims=True)
+                    # calculate B
+                    e_t = self._residuals
+                    B = -2 * np.mean(np.multiply(e_t, phi_t), keepdims=True)
+                    # solve coefficient polynomial
+                    new_gamma = -B / (2 * A)
 
             elif self.criterion == "mae":
                 gamma_init = np.array([[1.0]])
@@ -232,7 +237,6 @@ class rGradBoost:
             self._predictions = self._predictions + new_gamma * self._predictions_wl
 
             # Updating the residuals
-            # self._residuals = self._predictions - y
             if self.criterion == "mse":
                 self._residuals = y - self._predictions
             elif self.criterion == "mae":
@@ -296,7 +300,7 @@ class rGradBoost:
         # Incrementing the current iteration
         self.cur_m += m
 
-    def predict(self, X, PredNoiseCov, weights=None, rng=np.random.default_rng(seed=42)):
+    def predict(self, X, PredNoiseCov, weights=None, rng=np.random.default_rng()):
         """
         Given an ensemble, predict the value of the y variable for input(s) X
         """
@@ -368,7 +372,7 @@ class rGradBoost:
                 tilde_phi_t = phi_t + noise
                 A = np.mean(tilde_phi_t**2, keepdims=True)
                 # calculate B
-                e_t = self.y - yhat_prev
+                e_t = self.y - yhat_prev  # self._residuals  #
                 B = -2 * np.mean(np.multiply(e_t, tilde_phi_t), keepdims=True)
                 # calculate C
                 C = np.mean(e_t**2, keepdims=True)

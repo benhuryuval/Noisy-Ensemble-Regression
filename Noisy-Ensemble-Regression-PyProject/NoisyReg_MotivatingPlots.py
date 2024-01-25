@@ -347,9 +347,15 @@ if enable_flag_2:
     gd_learn_rate_dict, gd_learn_rate_dict_r, gd_tol, gd_decay_rate, bag_regtol_dict = getGradDecParams(reg_algo)
     _m, tree_max_depth, min_sample_leaf = 24, 5, 1
     sigma_profile_type = "noiseless_even"  # uniform / single_noisy / noiseless_even (for GradBoost)
-    snr_db_vec, noisy_scale = np.linspace(-25, 25, 10), 20
-    KFold_n_splits = 4
-    data_type_vec = ["kc_house_data"]
+    snr_db_vec, noisy_scale = np.linspace(-25, 25, 5), 100
+    # snr_db_vec, noisy_scale = [-25], 100
+    KFold_n_splits, n_repeat = 4, 25
+    rng = np.random.default_rng(seed=0)
+    rng_vec = []
+    [rng_vec.append(np.random.default_rng(seed=ii)) for ii in range(0, KFold_n_splits*n_repeat)]
+    # data_type_vec = ["sin", "kc_house_data"]
+    # data_type_vec = ["exp", "make_reg", "diabetes", "white-wine"]
+    data_type_vec = ["sin", "exp", "make_reg", "diabetes", "white-wine", "kc_house_data"]
 
     for data_type in data_type_vec:
         print("- - - dataset: " + str(data_type) + " - - -")
@@ -359,7 +365,14 @@ if enable_flag_2:
         kf = KFold(n_splits=KFold_n_splits, random_state=None, shuffle=False)
 
         err_cln = np.zeros((len(snr_db_vec), KFold_n_splits))
-        err_nr, err_r, err_nt = np.zeros_like(err_cln), np.zeros_like(err_cln), np.zeros_like(err_cln)
+        err_nr_avg, err_r_avg, err_nt_avg = np.zeros_like(err_cln), np.zeros_like(err_cln), np.zeros_like(err_cln)
+
+        err_nr = np.zeros((len(snr_db_vec), KFold_n_splits, n_repeat))
+        err_r, err_nt = np.zeros_like(err_nr), np.zeros_like(err_nr)
+
+        weights_nr, weights_r = np.zeros((len(snr_db_vec), KFold_n_splits, _m+1)), np.zeros((len(snr_db_vec), KFold_n_splits, _m+1))
+        weights_nt = np.zeros((len(snr_db_vec), KFold_n_splits, n_repeat, _m+1))
+
         kfold_idx = 0
         for train_index, test_index in kf.split(X):
             print("\nTRAIN:", train_index[0], " to ", train_index[-1], "\nTEST:", test_index[0], " to ", test_index[-1])
@@ -394,7 +407,7 @@ if enable_flag_2:
                 rgb_nr = rGradBoost(X=X_train, y=y_train, max_depth=tree_max_depth,
                                         min_sample_leaf=min_sample_leaf,
                                         TrainNoiseCov=np.zeros([_m + 1, _m + 1]),
-                                        RobustFlag=gradboost_robust_flag,
+                                        RobustFlag=False,
                                         criterion=criterion,
                                         gd_tol=gd_tol, gd_learn_rate=gd_learn_rate_dict[data_type], gd_decay_rate=gd_decay_rate)
                 rgb_r = rGradBoost(X=X_train, y=y_train, max_depth=tree_max_depth,
@@ -403,67 +416,116 @@ if enable_flag_2:
                                         RobustFlag=gradboost_robust_flag,
                                         criterion=criterion,
                                         gd_tol=gd_tol, gd_learn_rate=gd_learn_rate_dict_r[data_type], gd_decay_rate=gd_decay_rate)
-                rgb_noisytrain = rGradBoost(X=X_train, y=y_train, max_depth=tree_max_depth,
-                                        min_sample_leaf=min_sample_leaf,
-                                        TrainNoiseCov=noise_covariance,
-                                        RobustFlag=False,
-                                        criterion=criterion,
-                                        gd_tol=gd_tol, gd_learn_rate=gd_learn_rate_dict_r[data_type], gd_decay_rate=gd_decay_rate)
 
                 # Fitting on training data with noise: non-robust, robust, noisy training
                 rgb_nr.fit(X_train, y_train, m=_m)
                 rgb_r.fit(X_train, y_train, m=_m)
-                rgb_noisytrain.fit_mse_noisy(X_train, y_train, m=_m, rng=rng)
                 # - - - - - - - - - - - - - - - - -
 
                 # Predicting with noise (for reference)
                 pred_nr, pred_r, pred_nt = np.zeros(len(y_test)), np.zeros(len(y_test)), np.zeros(len(y_test))
                 for _n in range(0, n_repeat):
+                    rgb_noisytrain = rGradBoost(X=X_train, y=y_train, max_depth=tree_max_depth,
+                                                min_sample_leaf=min_sample_leaf,
+                                                TrainNoiseCov=noise_covariance,
+                                                RobustFlag=False,
+                                                criterion=criterion,
+                                                gd_tol=gd_tol, gd_learn_rate=gd_learn_rate_dict_r[data_type],
+                                                gd_decay_rate=gd_decay_rate)
+                    rgb_noisytrain.fit_mse_noisy(X_train, y_train, m=_m, rng=rng_vec[(kfold_idx-1)*n_repeat + _n])
+
                     # - - - NON-ROBUST - - -
                     pred_nr = rgb_nr.predict(X_test, PredNoiseCov=noise_covariance, rng=rng)
-                    err_nr[idx_snr_db, kfold_idx] += aux.calc_error(y_test[:,0], pred_nr, criterion)
+                    err_nr[idx_snr_db, kfold_idx, _n] = aux.calc_error(y_test[:,0], pred_nr, criterion)
                     # - - - ROBUST - - -
                     pred_r = rgb_r.predict(X_test, PredNoiseCov=noise_covariance, rng=rng)
-                    err_r[idx_snr_db, kfold_idx] += aux.calc_error(y_test[:,0], pred_r, criterion)
+                    err_r[idx_snr_db, kfold_idx, _n] = aux.calc_error(y_test[:,0], pred_r, criterion)
                     # - - - NOISY TRAINING - - -
                     pred_nt = rgb_noisytrain.predict(X_test, PredNoiseCov=noise_covariance, rng=rng)
-                    err_nt[idx_snr_db, kfold_idx] += aux.calc_error(y_test[:,0], pred_nt, criterion)
+                    err_nt[idx_snr_db, kfold_idx, _n] = aux.calc_error(y_test[:,0], pred_nt, criterion)
+
+                    weights_nt[idx_snr_db, kfold_idx, _n] = rgb_noisytrain.gamma.flatten()
+
+                weights_nr[idx_snr_db, kfold_idx] = rgb_nr.gamma.flatten()
+                weights_r[idx_snr_db, kfold_idx] = rgb_r.gamma.flatten()
 
                 # Expectation of error (over multiple realizations)
-                err_nr[idx_snr_db, kfold_idx] /= n_repeat
-                err_r[idx_snr_db, kfold_idx] /= n_repeat
-                err_nt[idx_snr_db, kfold_idx] /= n_repeat
+                err_nr_avg[idx_snr_db, kfold_idx] = err_nr[idx_snr_db, kfold_idx].mean()
+                err_r_avg[idx_snr_db, kfold_idx] = err_r[idx_snr_db, kfold_idx].mean()
+                err_nt_avg[idx_snr_db, kfold_idx] = err_nt[idx_snr_db, kfold_idx].mean()
 
                 print("Error [dB], (Clean, Non-robust, Robust, NoisyTrain) = (" +
                       "{0:0.3f}".format(10 * np.log10(err_cln[idx_snr_db, kfold_idx])) + ", " +
-                      "{0:0.3f}".format(10 * np.log10(err_nr[idx_snr_db, kfold_idx])) + ", " +
-                      "{0:0.3f}".format(10 * np.log10(err_r[idx_snr_db, kfold_idx])) + ", " +
-                      "{0:0.3f}".format(10 * np.log10(err_nt[idx_snr_db, kfold_idx])) + ")"
+                      "{0:0.3f}".format(10 * np.log10(err_nr_avg[idx_snr_db, kfold_idx])) + ", " +
+                      "{0:0.3f}".format(10 * np.log10(err_r_avg[idx_snr_db, kfold_idx])) + ", " +
+                      "{0:0.3f}".format(10 * np.log10(err_nt_avg[idx_snr_db, kfold_idx])) + ")"
                       )
 
             kfold_idx += 1
 
-        # Plot error comparison
+        # Figures and plots
         if True:
             plt.rcParams['text.usetex'] = True
             fontsize = 18
             plt.rcParams.update({'font.size': fontsize})
-            fig = plt.figure(figsize=(12, 8))
-            fig.set_label("rGB_vs_NoisyTraining")
-            # plt.plot(snr_db_vec, 10 * np.log10(err_cln[:, :].mean(1)), '-k', label='Clean')
-            plt.plot(snr_db_vec, err_r[:, :].mean(1), '-ob', label='Robust Gradient Boosting (This work)')
-            plt.plot(snr_db_vec, err_nr[:, :].mean(1), '-xr', label='Gradient Boosting (non-robust)')
-            plt.plot(snr_db_vec, err_nt[:, :].mean(1), '-dy', label='Noisy Training')
-            # plt.title("dataset: " + str(data_type) + ", T=" + str(_m) + " regressors\nnoise=" + sigma_profile_type)
+
+            # Plot MSE of different methods
+            fig, ax = plt.subplots(figsize=(12, 8))
+            fig.set_label("rGB_vs_NoisyTraining_Error_" + data_type_name[data_type])
+            for kfold_idx in range(0, KFold_n_splits):
+                ax.fill_between(snr_db_vec, err_r[:, kfold_idx, :].max(axis=1).flatten(),
+                                err_r[:, kfold_idx, :].min(axis=1).flatten(), color='cornflowerblue',
+                                alpha=0.1*(kfold_idx+1))
+                ax.fill_between(snr_db_vec, err_nr[:, kfold_idx, :].max(axis=1).flatten(),
+                                err_nr[:, kfold_idx, :].min(axis=1).flatten(), color='plum',
+                                alpha=0.1 * (kfold_idx + 1))
+                ax.fill_between(snr_db_vec, err_nt[:, kfold_idx, :].max(axis=1).flatten(),
+                                err_nt[:, kfold_idx, :].min(axis=1).flatten(), color='sandybrown',
+                                alpha=0.1 * (kfold_idx + 1))
+            plt.plot(snr_db_vec, err_r_avg.mean(axis=1), linestyle='-', marker='s', color='darkblue', label='Robust Gradient Boosting (This work)')
+            # ax.fill_between(snr_db_vec, err_r.max(axis=(1, 2)).flatten(), err_r.min(axis=(1, 2)).flatten(), color='blue', alpha=0.25)
+            plt.plot(snr_db_vec, err_nr_avg.mean(axis=1), linestyle='-', marker='D', color='purple', label='Gradient Boosting (Non-robust)')
+            # ax.fill_between(snr_db_vec, err_nr.max(axis=(1, 2)).flatten(), err_nr.min(axis=(1, 2)).flatten(), color='plum', alpha=0.25)
+            plt.plot(snr_db_vec, err_nt_avg.mean(axis=1), linestyle='-', marker='*', color='peru', markersize=12, label='Noisy Training')
+            # ax.fill_between(snr_db_vec, err_nt.max(axis=(1, 2)).flatten(), err_nt.min(axis=(1, 2)).flatten(), color='sandybrown', alpha=0.25)
+            plt.title(data_type_name[data_type] + " dataset, " + "T=" + str(_m+1) + " regressors\nNoisy subset with m=2, a=" + str(noisy_scale))
             plt.xlabel('SNR [dB]')
             plt.ylabel('MSE')
             plt.legend()
             plt.grid(visible=True)
             plt.show(block=False)
-            plt.ylim(0, 15)
+            plt.ylim(0, 18)
             fig.savefig(fig.get_label() + ".png")
-        print("---------------------------------------------------------------------------\n")
 
+            # Plot weights of different methods
+            idx_snr_db = 2
+            fig, ax = plt.subplots(figsize=(12, 8))
+            fig.set_label("rGB_vs_NoisyTraining_Weights_" + data_type_name[data_type])
+            for kfold_idx in range(0, KFold_n_splits):
+                if kfold_idx == KFold_n_splits-1:
+                    label_ = ['Robust Gradient Boosting (This work)', 'Noisy Training']
+                else:
+                    label_ = [None, None]
+                # ax.fill_between(range(1, _m+2), weights_r[idx_snr_db, kfold_idx].flatten(),
+                #                 weights_r[idx_snr_db, kfold_idx].min(axis=0).flatten(), color='cornflowerblue',
+                #                 alpha=0.1 * (kfold_idx + 1))
+                # ax.fill_between(range(1, _m+2), weights_nr[idx_snr_db, kfold_idx].flatten(),
+                #                 weights_nr[idx_snr_db, kfold_idx].min(axis=0).flatten(), color='plum',
+                #                 alpha=0.1 * (kfold_idx + 1))
+                plt.plot(range(1, _m+2), weights_r[idx_snr_db, kfold_idx], linestyle='-', marker='s', color='darkblue',
+                         alpha=0.1 * (kfold_idx + 1), label=label_[0])
+                # plt.plot(range(1, _m+2), weights_nr[idx_snr_db, kfold_idx], linestyle='-', marker='s', color='purple',
+                #          alpha=0.1 * (kfold_idx + 1))
+                ax.fill_between(range(1, _m+2), weights_nt[idx_snr_db, kfold_idx].max(axis=0).flatten(),
+                                weights_nt[idx_snr_db, kfold_idx].min(axis=0).flatten(), color='sandybrown',
+                                alpha=0.1 * (kfold_idx + 1), label=label_[1])
+            plt.xlabel('Sub-regressor index'), plt.ylabel('Aggregation coefficient value')
+            plt.title(data_type_name[data_type] + " dataset, " + "T=" + str(_m+1) + " regressors\nNoisy subset with m=2, a=" + str(noisy_scale) + ", SNR=" + str(snr_db_vec[idx_snr_db]) + " [dB]")
+            plt.grid(visible=True), plt.show(block=False)
+            plt.xlim(0.5, _m+1.5), plt.legend()
+            fig.savefig(fig.get_label() + ".png")
+
+        print("---------------------------------------------------------------------------\n")
 ####################################################
 # 3: Evaluate MAE with MSE-optimized vs MAE-optimized weights
 ####################################################
