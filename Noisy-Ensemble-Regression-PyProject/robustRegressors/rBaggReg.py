@@ -119,7 +119,7 @@ class rBaggReg:  # Robust Bagging Regressor
             # Setting the weak learner weight via gradient-descent optimization
             weights_init = np.array([np.ones([self.n_base_estimators, ])])/self.n_base_estimators
             def grad_gem_mae(alpha, base_prediction, y):
-                grad = alpha.T * np.sign(alpha.dot(base_prediction) - y)
+                grad = base_prediction * np.sign(alpha.dot(base_prediction) - y)
                 return grad.mean(1)
 
             def cost_gem_mae(alpha, base_prediction, y):
@@ -191,12 +191,13 @@ class rBaggReg:  # Robust Bagging Regressor
             # # DEBUG # #
             if False:
                 import matplotlib.pyplot as plt
-                fig, ax = plt.figure("Cost evolution", figsize=(8, 6), dpi=300), plt.axes()
-                plt.plot(cost_evolution[0:stop_iter])
+                fig, ax = plt.figure(figsize=(8, 6), dpi=300), plt.axes()
+                plt.plot(cost_evolution[0:stop_iter], label="Cost evolution",)
                 plt.xlabel('Iteration', fontsize=18)
                 plt.ylabel("Cost", fontsize=18)
                 plt.show(block=False)
                 bb=0
+                plt.close(fig)
             # # DEBUG END # #
 
         else:
@@ -262,7 +263,7 @@ class rBaggReg:  # Robust Bagging Regressor
         self.mae_lb = mae_cln, mae_cln + np.nanmean(diff * np.exp(-1/2 * diff_ind * (mu_max/sigma_bar)**2 -1/2 * (1-diff_ind) * (mu_min/sigma_max)**2))
         return self.mae_lb
 
-    def calc_mae_ub(self, X, y, weights=None, normFlag=False):
+    def calc_mae_ub(self, X, y):
         # Obtain base predictions from ensemble
         base_prediction = np.zeros([self.n_base_estimators, len(X)])
         for k, base_estimator in enumerate(self.bagging_regressor.estimators_):
