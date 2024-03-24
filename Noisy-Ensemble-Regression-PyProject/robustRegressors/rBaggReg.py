@@ -60,7 +60,9 @@ class rBaggReg:  # Robust Bagging Regressor
             base_prediction = np.zeros([self.n_base_estimators, len(y)])
             for k, base_estimator in enumerate(self.bagging_regressor.estimators_):
                 base_prediction[k, :] = base_estimator.predict(X)
-            self.weights = np.linalg.inv(base_prediction.dot(base_prediction.T)).dot(base_prediction).dot(y)  # least-squares
+            c_mat = base_prediction.dot(base_prediction.T)/len(y)
+            reg_mat = self.bag_tol * np.diag(np.ones(self.n_base_estimators, ))
+            self.weights = np.linalg.inv(c_mat + reg_mat).dot(base_prediction).dot(y)/len(y)  # least-squares
 
         elif self.integration_type == 'robust-bem':
             w, v = sp.linalg.eig(self.noise_covariance)
@@ -92,7 +94,10 @@ class rBaggReg:  # Robust Bagging Regressor
             base_prediction = np.zeros([self.n_base_estimators, len(y)])
             for k, base_estimator in enumerate(self.bagging_regressor.estimators_):
                 base_prediction[k, :] = base_estimator.predict(X)
-            self.weights = np.linalg.inv(base_prediction.dot(base_prediction.T)/len(y) + lamda*self.noise_covariance).dot(base_prediction).dot(y)/len(y)  # least-squares
+            c_mat = base_prediction.dot(base_prediction.T)/len(y)
+            ncov_mat = self.noise_covariance
+            reg_mat = self.bag_tol * np.diag(np.ones(self.n_base_estimators, ))
+            self.weights = np.linalg.inv(c_mat + lamda*ncov_mat + reg_mat).dot(base_prediction).dot(y)/len(y)  # least-squares
 
         else:
             print('Invalid integration type.')
@@ -160,24 +165,29 @@ class rBaggReg:  # Robust Bagging Regressor
             weights_init = np.array([np.ones([self.n_base_estimators, ])])/self.n_base_estimators
             def grad_rgem_mae(alpha, noise_cov, base_prediction, y):
                 mu = alpha.dot(base_prediction) - y
-                sigma = np.sqrt(alpha.dot(noise_cov.dot(alpha.T)))
-                rho = mu / sigma
-
                 mu_tag = base_prediction
-                sig_tag = (noise_cov.dot(alpha.T)) / sigma
-                rho_tag = (base_prediction*sigma - mu*sig_tag) / (sigma**2)
+                sigma = np.sqrt(alpha.dot(noise_cov.dot(alpha.T)))
 
-                grad = np.sqrt(2/np.pi) * np.exp(-0.5 * rho**2) * (sig_tag - sigma*rho*rho_tag) +  \
-                    mu_tag * (1 - 2*sp.stats.norm.cdf(-rho)) +             \
-                    2 * mu * rho_tag * sp.stats.norm.pdf(-rho)
+                if sigma == 0.0:
+                    grad = mu_tag * np.sign(mu)
+                else:
+                    rho = mu / sigma
+                    sig_tag = (noise_cov.dot(alpha.T)) / sigma
+                    rho_tag = (base_prediction*sigma - mu*sig_tag) / (sigma**2)
+                    grad = np.sqrt(2/np.pi) * np.exp(-0.5 * rho**2) * (sig_tag - sigma*rho*rho_tag) +  \
+                        mu_tag * (1 - 2*sp.stats.norm.cdf(-rho)) +             \
+                        2 * mu * rho_tag * sp.stats.norm.pdf(-rho)
                 return grad.mean(1)
 
             def cost_rgem_mae(alpha, noise_cov, base_prediction, y):
                 mu = alpha.dot(base_prediction) - y
                 sigma = np.sqrt(alpha.dot(noise_cov.dot(alpha.T)))
 
-                cost = np.sqrt(2/np.pi)*sigma*np.exp(-0.5 * (mu/sigma)**2) +  \
-                    mu * (1 - 2*sp.stats.norm.cdf(-mu/sigma))
+                if sigma == 0.0:
+                    cost = mu * (1 - 2*np.sign(-mu))
+                else:
+                    cost = np.sqrt(2/np.pi)*sigma*np.exp(-0.5 * (mu/sigma)**2) +  \
+                        mu * (1 - 2*sp.stats.norm.cdf(-mu/sigma))
                 return cost.mean(1)
 
             grad_fun = lambda weights: grad_rgem_mae(weights, self.noise_covariance, base_prediction, y)

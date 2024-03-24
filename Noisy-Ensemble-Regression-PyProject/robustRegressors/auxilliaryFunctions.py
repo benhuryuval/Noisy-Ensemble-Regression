@@ -109,10 +109,11 @@ def gradient_descent_scalar(gamma_init, grad_fun, cost_fun, max_iter=30000, min_
                 break
             else:
                 # update learning rate and advance according to AdaGrad
-                Gt = Gt + grad_evolution[i]**2  # np.sum(np.concatenate(grad_evolution[0:i+1]) ** 2)
-                learn_rate_upd = np.divide(learn_rate, np.sqrt(Gt + eps))
-                step = step.dot(decay_rate) - np.dot(learn_rate_upd, grad_evolution[i])
-                # step = -grad.dot(learn_rate)
+                # Gt = Gt + grad_evolution[i]**2  # np.sum(np.concatenate(grad_evolution[0:i+1]) ** 2)
+                # learn_rate_upd = np.divide(learn_rate, np.sqrt(Gt + eps))
+                # step = step.dot(decay_rate) - np.dot(learn_rate_upd, grad_evolution[i])
+                # vanilla step
+                step = -grad_evolution[i].dot(learn_rate)
                 gamma_evolution[i+1] = gamma_evolution[i] + step
         # - - - - - - - - - - - - - - - - - - - - - - - - - -
         # Cost function visualization for debug
@@ -136,8 +137,7 @@ def gradient_descent_scalar(gamma_init, grad_fun, cost_fun, max_iter=30000, min_
         return cost_evolution, gamma_evolution, i
 
 
-def gradient_descent(gamma_init, grad_fun, cost_fun, max_iter=30000, min_iter=10, tol=1e-5, learn_rate=0.2,
-                            decay_rate=0.2):
+def gradient_descent(gamma_init, grad_fun, cost_fun, max_iter=30000, min_iter=10, tol=1e-5, learn_rate=0.2, decay_rate=0.2):
     """ This function calculates optimal (scalar) argument with AdaGrad-style gradient descent method using an early stop criteria and
     selecting the minimal value reached throughout the iterations """
 

@@ -206,9 +206,10 @@ class rGradBoost:
 
                 # # DEBUG # #
                 # Cost evolution through GD
-                if False:
+                if True: #self.TrainNoiseCov[0,0]>0:
                     import matplotlib.pyplot as plt
-                    fig, ax = plt.figure("Cost evolution", figsize=(8, 6), dpi=300), plt.axes()
+                    fig, ax = plt.figure(figsize=(8, 6), dpi=300), plt.axes()
+                    plt.figure(fig)
                     plt.plot(cost_evolution[0:stop_iter])
                     plt.xlabel('Iteration', fontsize=18)
                     plt.ylabel("Cost", fontsize=18)
@@ -221,15 +222,17 @@ class rGradBoost:
 
                 # # DEBUG # #
                 # Fit of aggregated prediction
-                if False:
+                if True: #self.TrainNoiseCov[0,0]>0:
                     import matplotlib.pyplot as plt
-                    fig_dataset = plt.figure(figsize=(12, 8))
+                    fig_dataset, ax = plt.figure(figsize=(12, 8)), plt.axes()
+                    plt.figure(fig_dataset)
                     plt.plot(self.X[:, 0], self.y, 'x', label="Train")
                     plt.plot(self.X[:, 0], self._predictions + new_gamma * self._predictions_wl, 'o', label="Prediction")
                     plt.xlabel('x')
                     plt.ylabel('y')
                     plt.title(np.abs(np.subtract(y, self.predict(self.X, self.TrainNoiseCov[0:_ + 1, 0:_ + 1]))).mean())
-                    plt.close(fig_dataset)
+                    plt.show(block=False)
+                    # plt.close(fig_dataset)
                 # # DEBUG END # #
 
             # Saving the current total predictions and coefficient
