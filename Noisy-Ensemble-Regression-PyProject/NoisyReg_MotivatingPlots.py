@@ -106,7 +106,7 @@ data_type_name = {"sin":"Sine", "exp":"Exp", "diabetes":"Diabetes", "make_reg":"
 ####################################################
 # 0: Noisy vs Noiseless prediction on Sin and Exp datasets
 ####################################################
-enable_flag_0 = True
+enable_flag_0 = False
 if enable_flag_0:
     ensemble_size, tree_max_depth, min_sample_leaf = [5], 8, 1
     reg_algo, bagging_method, criterion = "Bagging", "gem", "mse"  # "GradBoost" / "Bagging"
@@ -239,11 +239,11 @@ if enable_flag_0:
 # 1: Distribution of coefficients across Bagging ensembles
 ####################################################
 enable_flag_1 = False
-if enable_flag_1:
+if False:
     reg_algo, bagging_method, criterion = "Bagging", "lr", "mse"
     gd_learn_rate_dict, gd_learn_rate_dict_r, gd_tol, gd_decay_rate, bag_regtol_dict = getGradDecParams(reg_algo)
     ensemble_size, tree_max_depth, min_sample_leaf = [20], 5, 1
-    data_type_vec = ["sin", "diabetes"]
+    data_type_vec = ["sin"]
     sigma_profile_type_vec = ["uniform", "noiseless_even"]
     _m = ensemble_size[0]
     snr_db, noisy_scale = 10, 20
@@ -316,13 +316,14 @@ if enable_flag_1:
                 plt.rcParams['text.usetex'] = True
                 fontsize = 24
                 plt.rcParams.update({'font.size': fontsize})
-                fig, axes = plt.subplots(nrows=2, ncols=2, figsize=(24, 16))
+                fig, axes = plt.subplots(nrows=1, ncols=2, figsize=(24, 16))
                 axes_flat = axes.flatten()
                 colors = ['blue', 'red', 'green', 'tan']
                 hatches = ["//", "++", "..", "xx"]
                 edges = np.arange(-0.150, 0.275, 0.025/2)
             fig.set_label("coefficients_histograms")
-            ax = axes[_ds_idx, _profile_idx]
+            # ax = axes[_ds_idx, _profile_idx]
+            ax = axes[_profile_idx]
             n, bins, patches = ax.hist(coefs_nr[_ds_idx], bins=edges, label=data_type, color=colors[0:kf.n_splits], density=True, stacked=True, histtype='bar')
             # ax.hist(coefs_nr[_ds_idx], nbins, label=data_type, color=colors[0:kf.n_splits], density=True, stacked=False, histtype='step', fill=False)
             for patch_set, hatch in zip(patches, hatches):
@@ -331,7 +332,7 @@ if enable_flag_1:
             if sigma_profile_type == "uniform":
                 ax.set_title("Dataset: " + data_type_name[data_type] + ", \\\\" + "Noise: Equi-Variance")
             elif sigma_profile_type == "noiseless_even":
-                ax.set_title("Dataset: " + data_type_name[data_type] + ", \\\\" + "Noise: Noisy subset, m=2")
+                ax.set_title("Dataset: " + data_type_name[data_type] + ", \\\\" + "Noise: Noisier subset, m=2")
             # ax.set_xlabel('Values')
             # ax.set_ylabel('Counts')
             plt.tight_layout()
@@ -339,6 +340,167 @@ if enable_flag_1:
             plt.show(block=False)
             # plt.title(sigma_profile_type)
             # plt.setp(axes, xlim=[-0.05, 0.25])
+            ax.tick_params(axis='both', which='major', labelsize=fontsize)
+            ax.tick_params(axis='both', which='minor', labelsize=fontsize)
+            fig.savefig(fig.get_label() + ".png")
+    print("---------------------------------------------------------------------------\n")
+if enable_flag_1:
+    import seaborn as sns
+
+    reg_algo, bagging_method, criterion = "Bagging", "lr", "mse"
+    gd_learn_rate_dict, gd_learn_rate_dict_r, gd_tol, gd_decay_rate, bag_regtol_dict = getGradDecParams(reg_algo)
+    ensemble_size, tree_max_depth, min_sample_leaf = [20], 5, 1
+    data_type_vec = ["sin"]
+    sigma_profile_type_vec = ["uniform", "noiseless_even"]
+    _m = ensemble_size[0]
+    snr_db, noisy_scale = [100, 10, -10], 20
+    KFold_n_splits = 4
+    plot_flag = True
+
+    for _profile_idx, sigma_profile_type in enumerate(sigma_profile_type_vec):
+        coefs_nr, coefs_r = [], []
+        for _ds_idx, data_type in enumerate(data_type_vec):
+            print("- - - dataset: " + str(data_type) + " - - -")
+            # Dataset preparation
+            X, y = aux.get_dataset(data_type=data_type, n_samples=n_samples, noise=train_noise, rng=rng)
+            kf = KFold(n_splits=KFold_n_splits, random_state=None, shuffle=False)
+
+            y_train_avg, y_test_avg = [], []
+            coefs_nr_per_fold0, coefs_r_per_fold0, scores_r_per_fold0 = np.zeros([_m, kf.n_splits]), np.zeros([_m, kf.n_splits]), np.zeros([_m, kf.n_splits])
+            coefs_nr_per_fold1, coefs_r_per_fold1, scores_r_per_fold1 = np.zeros([_m, kf.n_splits]), np.zeros([_m, kf.n_splits]), np.zeros([_m, kf.n_splits])
+            coefs_nr_per_fold2, coefs_r_per_fold2, scores_r_per_fold2 = np.zeros([_m, kf.n_splits]), np.zeros([_m, kf.n_splits]), np.zeros([_m, kf.n_splits])
+            kfold_idx = -1
+            for train_index, test_index in kf.split(X):
+                # - - - Load data
+                print("\nTRAIN:", train_index[0], " to ", train_index[-1], "\nTEST:", test_index[0], " to ", test_index[-1])
+                X_train, X_test = X[train_index], X[test_index]
+                y_train, y_test = y[train_index], y[test_index]
+                kfold_idx += 1
+
+                y_train_avg.append(np.nanmean(np.abs(y_train)))
+                y_test_avg.append(np.nanmean(np.abs(y_test)))
+
+                # - - - CLEAN BAGGING - - -
+                # Initiating the tree
+                if criterion == "mse":
+                    cln_reg = sklearn.ensemble.BaggingRegressor(
+                            sk.tree.DecisionTreeRegressor(max_depth=tree_max_depth),
+                            n_estimators=_m, random_state=0)
+                elif criterion == "mae":
+                    cln_reg = sklearn.ensemble.BaggingRegressor(
+                            sk.tree.DecisionTreeRegressor(max_depth=tree_max_depth,
+                                                          criterion="mae"),
+                            n_estimators=_m, random_state=0)
+
+                # Fitting on training data
+                cln_reg.fit(X_train, y_train[:, 0])
+                # - - - - - - - - - - - - - - - - -
+
+                # print("snr " + " = " + "{0:0.3f}".format(snr_db) + ": ", end=" ")
+
+                # Set noise variances
+                ncov0 = get_noise_covmat(y_train, _m, snr_db[0], noisy_scale)
+                ncov1 = get_noise_covmat(y_train, _m, snr_db[1], noisy_scale)
+                ncov2 = get_noise_covmat(y_train, _m, snr_db[2], noisy_scale)
+
+                # - - - NON-ROBUST / ROBUST BAGGING - - -
+                # - - - - - - - - No noise - - - - - - - - -
+                noisy_reg = rBaggReg(cln_reg,   ncov0, _m, bagging_method,           gd_tol, gd_learn_rate_dict[data_type], gd_decay_rate, bag_regtol_dict[data_type])
+                noisy_rreg = rBaggReg(cln_reg,  ncov0, _m, "robust-"+bagging_method, gd_tol, gd_learn_rate_dict[data_type], gd_decay_rate, bag_regtol_dict[data_type])
+                # Fitting on training data with noise: non-robust and robust
+                if criterion == "mse":
+                    noisy_reg.fit_mse(X_train, y_train[:, 0])
+                    noisy_rreg.fit_mse(X_train, y_train[:, 0])
+                elif criterion == "mae":
+                    noisy_reg.fit_mae(X_train, y_train[:, 0])
+                    noisy_rreg.fit_mae(X_train, y_train[:, 0])
+                coefs_nr_per_fold0[:, kfold_idx] = noisy_reg.weights
+                coefs_r_per_fold0[:, kfold_idx] = noisy_rreg.weights
+                scores_r_per_fold0[:, kfold_idx] = noisy_rreg.scores
+                # - - - - - - - - - - - - - - - - -
+
+                # - - - - - - - - Weak noise - - - - - - - - -
+                noisy_reg = rBaggReg(cln_reg, ncov1, _m, bagging_method, gd_tol, gd_learn_rate_dict[data_type], gd_decay_rate, bag_regtol_dict[data_type])
+                noisy_rreg = rBaggReg(cln_reg, ncov1, _m, "robust-" + bagging_method, gd_tol, gd_learn_rate_dict[data_type], gd_decay_rate, bag_regtol_dict[data_type])
+                # Fitting on training data with noise: non-robust and robust
+                if criterion == "mse":
+                    noisy_reg.fit_mse(X_train, y_train[:, 0])
+                    noisy_rreg.fit_mse(X_train, y_train[:, 0])
+                elif criterion == "mae":
+                    noisy_reg.fit_mae(X_train, y_train[:, 0])
+                    noisy_rreg.fit_mae(X_train, y_train[:, 0])
+                coefs_nr_per_fold1[:, kfold_idx] = noisy_reg.weights
+                coefs_r_per_fold1[:, kfold_idx] = noisy_rreg.weights
+                scores_r_per_fold1[:, kfold_idx] = noisy_rreg.scores
+                # - - - - - - - - - - - - - - - - -
+
+                # - - - - - - - - High noise - - - - - - - - -
+                noisy_reg = rBaggReg(cln_reg, ncov2, _m, bagging_method, gd_tol, gd_learn_rate_dict[data_type], gd_decay_rate, bag_regtol_dict[data_type])
+                noisy_rreg = rBaggReg(cln_reg, ncov2, _m, "robust-" + bagging_method, gd_tol, gd_learn_rate_dict[data_type], gd_decay_rate, bag_regtol_dict[data_type])
+                # Fitting on training data with noise: non-robust and robust
+                if criterion == "mse":
+                    noisy_reg.fit_mse(X_train, y_train[:, 0])
+                    noisy_rreg.fit_mse(X_train, y_train[:, 0])
+                elif criterion == "mae":
+                    noisy_reg.fit_mae(X_train, y_train[:, 0])
+                    noisy_rreg.fit_mae(X_train, y_train[:, 0])
+                coefs_nr_per_fold2[:, kfold_idx] = noisy_reg.weights
+                coefs_r_per_fold2[:, kfold_idx] = noisy_rreg.weights
+                scores_r_per_fold2[:, kfold_idx] = noisy_rreg.scores
+                # - - - - - - - - - - - - - - - - -
+
+            data = {'coeficients': np.concatenate((np.abs(coefs_r_per_fold0[:,0]), np.abs(coefs_r_per_fold1[:,0]), np.abs(coefs_r_per_fold2[:,0])), axis=0),
+                    'index': np.concatenate((np.arange(_m)+1, np.arange(_m)+1, np.arange(_m)+1), axis=0),
+                    'type': ['noiseless']*20 + ['weak noise']*20 + ['high noise']*20,
+                    'score': np.concatenate((np.abs(scores_r_per_fold0[:,0]), np.abs(scores_r_per_fold1[:,0]), np.abs(scores_r_per_fold2[:,0])), axis=0),
+                    }
+            df = pd.DataFrame(data)
+
+            # Plotting distributions of coefficients
+            # plt.rcParams['text.usetex'] = True
+            # fontsize = 24
+            # plt.rcParams.update({'font.size': fontsize})
+            sns.set_theme(style='whitegrid')
+
+            colors = ['blue', 'red', 'green', 'tan']
+            hatches = ["//", "++", "..", "xx"]
+
+            fig, (ax1, ax2) = plt.subplots(ncols=2, figsize=(10, 5), sharey=True, gridspec_kw={'wspace': 0})
+            fig.set_label("coefficients_barplot")
+
+            # draw coefficients subplot at the right
+            sns.barplot(data=df, x='coeficients', y='index', hue='type',
+                        ci=False, orient='horizontal', dodge=True, ax=ax2)
+            ax2.yaxis.set_label_position('right')
+            ax2.tick_params(axis='y', labelright=True, right=True)
+            ax2.set_title('  ' + 'Coefficient value', loc='left')
+            ax2.set_xlabel('')
+
+            # draw prediction quality subplot at the left
+            sns.barplot(data=df[df['type'] == 'weak noise'], x='score', y='index',
+                        ci=False, orient='horizontal', dodge=True, ax=ax1)
+
+            # optionally use the same scale left and right
+            ax1.set_xlim(xmax=ax1.get_xlim()[1])
+            ax2.set_xlim(xmax=ax2.get_xlim()[1])
+
+            ax1.invert_xaxis()  # reverse the direction
+            ax1.tick_params(labelleft=False, left=False)
+            ax1.set_ylabel('')
+            ax1.set_xlabel('')
+            ax1.set_title('Individual error' + '  ', loc='right')
+
+            labels = [item.get_text() for item in ax1.get_xticklabels()]
+            labels[0] = '0'
+            ax1.set_xticklabels(labels)
+
+            labels = [item.get_text() for item in ax2.get_xticklabels()]
+            labels[0] = ''
+            ax2.set_xticklabels(labels)
+
+            plt.tight_layout()
+            plt.show()
+
             fig.savefig(fig.get_label() + ".png")
     print("---------------------------------------------------------------------------\n")
 
@@ -357,9 +519,9 @@ if enable_flag_2:
     rng = np.random.default_rng(seed=0)
     rng_vec = []
     [rng_vec.append(np.random.default_rng(seed=ii)) for ii in range(0, KFold_n_splits*n_repeat)]
-    # data_type_vec = ["sin", "kc_house_data"]
+    data_type_vec = ["sin", "kc_house_data"]
     # data_type_vec = ["exp", "make_reg", "diabetes", "white-wine"]
-    data_type_vec = ["sin", "exp", "make_reg", "diabetes", "white-wine", "kc_house_data"]
+    # data_type_vec = ["sin", "exp", "make_reg", "diabetes", "white-wine", "kc_house_data"]
 
     for data_type in data_type_vec:
         print("- - - dataset: " + str(data_type) + " - - -")
@@ -646,7 +808,7 @@ if enable_flag_4:
     reg_algo, bagging_method = "Bagging", "lr"
     gd_learn_rate_dict, gd_learn_rate_dict_r, gd_tol, gd_decay_rate, bag_regtol_dict = getGradDecParams(reg_algo)
     ensemble_size, tree_max_depth, min_sample_leaf = [8], 5, 1
-    data_type_vec, sigma_profile_type = ["sin", "exp", "diabetes", "make_reg", "white-wine", "kc_house_data"], "uniform"
+    data_type_vec, sigma_profile_type = ["sin", "diabetes", "make_reg", "white-wine", "kc_house_data"], "uniform"
     # data_type_vec, sigma_profile_type = ["sin", "diabetes"], "uniform"
     _m, n_repeat = ensemble_size[0], 100
     snr_db_vec, noiseless_ratio = [-6], 2  # 4 -> every 4th sub-regressor is noiseless
@@ -703,8 +865,265 @@ if enable_flag_4:
 
     # change legend order
     handles, labels = plt.gca().get_legend_handles_labels()  # get handles and labels
-    order = np.array((4, 2, 5, 3, 0, 1))  # specify order of items in legend
+    order = np.array((3, 1, 4, 2, 0))  # specify order of items in legend
     plt.legend([handles[idx] for idx in order], [labels[idx] for idx in order], fontsize=fontsize,
                ncol=1)  # add legend to plot
 
+    fig.savefig(fig.get_label() + ".png")
+
+####################################################
+# 5: Gradient-Boosting MSE versus T
+####################################################
+enable_flag_5 = True
+if enable_flag_5:
+    def get_noise_covmat(sig_var, _m=1, snr_db=0, noisy_scale=1):
+        snr = 10 ** (snr_db / 10)
+        if sigma_profile_type == "uniform":
+            sigma_sqr = sig_var / snr
+            noise_covariance = np.diag(sigma_sqr * np.ones([_m, ]))
+        elif sigma_profile_type == "single_noisy":
+            sigma_sqr = sig_var / (snr * (1 + (noisy_scale - 1) / _m))
+            noise_covariance = np.diag(sigma_sqr / noisy_scale * np.ones([_m, ]))
+            noise_covariance[0, 0] = sigma_sqr
+        elif sigma_profile_type == "noiseless_even":
+            sigma_sqr = sig_var / ((1 + (noisy_scale - 1) / 2) * snr)
+            sigma_profile = sigma_sqr * np.ones([_m, ])
+            sigma_profile[1::2] *= noisy_scale  # INDEX 1 3 5 7 ...
+            # sigma_profile[0::2] *= noisy_scale  # INDEX 0 2 4 6...
+            noise_covariance = np.diag(sigma_profile)
+        return noise_covariance
+
+    KFold_n_splits = 4  # Number of k-fold x-validation dataset splits
+    data_type_vec = ["diabetes", "sin"]
+    snr_db_vec = [18]
+
+    reg_algo, bagging_method, criterion = "Bagging", "lr", "mse"
+    rng = np.random.default_rng(seed=42)
+
+    n_repeat = 400  # Number of iterations for estimating expected performance
+    sigma_profile_type = "noiseless_even"  # uniform / single_noisy / noiseless_even
+    noisy_scale = 20
+    n_samples = 1000  # Size of the (synthetic) dataset  in case of synthetic dataset
+    train_noise = 0.01  # Standard deviation of the measurement / training noise in case of synthetic dataset
+
+    params = {
+        "sin": {
+            "ensemble_size": [0, 1, 2, 4, 8, 16, 24, 32, 44], # [1, 3, 5, 7, 11, 15, 25, 31],  # [1,2,4,8,12,16,24,32],
+            "tree_max_depth": 1,
+            "learn_rate": 2e-2,
+            "gd_tol": 1e-6
+        },
+        "exp": {
+            "ensemble_size": [8],
+            "tree_max_depth": 1,
+            "learn_rate": 1e-2,
+            "gd_tol": 1e-6
+        },
+        "make_reg": {
+            "ensemble_size": [16],
+            "tree_max_depth": 1,
+            "learn_rate": 1e-2,
+            "gd_tol": 1e-6
+        },
+        "diabetes": {
+            "ensemble_size": [0, 1, 2, 4, 8, 16], #[1, 3, 5, 7, 11, 15, 25, 31],
+            "tree_max_depth": 1,
+            "learn_rate": 1e-2,
+            "gd_tol": 1e-6
+        },
+        "white-wine": {
+            "ensemble_size": [16],
+            "tree_max_depth": 1,
+            "learn_rate": 1e-2,
+            "gd_tol": 1e-6
+        },
+        "kc_house_data": {
+            "ensemble_size": [32],
+            "tree_max_depth": 1,
+            "learn_rate": 1e-2,
+            "gd_tol": 1e-6
+        },
+    }
+    gd_decay_rate = 0.0  #
+    min_sample_leaf = 1
+
+    plot_flag = False
+
+    for idx_data_type, data_type in enumerate(data_type_vec):
+        print("- - - dataset: " + str(data_type) + " - - -")
+
+        # Dataset preparation
+        X, y = aux.get_dataset(data_type=data_type, n_samples=n_samples, noise=train_noise, rng=rng)
+        kf = KFold(n_splits=KFold_n_splits, random_state=None, shuffle=False)
+
+        ensemble_size = params[data_type]["ensemble_size"]
+        tree_max_depth = params[data_type]["tree_max_depth"]
+        learn_rate = params[data_type]["learn_rate"]
+        gd_tol = params[data_type]["gd_tol"]
+
+        err_cln = np.zeros((len(snr_db_vec), len(ensemble_size), KFold_n_splits))
+        err_nr, err_r, err_r_cln = np.zeros_like(err_cln), np.zeros_like(err_cln), np.zeros_like(err_cln)
+
+        for _m_idx, _m in enumerate(ensemble_size):  # iterate number of trees
+            print("T=" + str(_m) + " regressors")
+
+            kfold_idx = 0
+            for train_index, test_index in kf.split(X):
+                print("\nTRAIN:", train_index[0], " to ", train_index[-1], "\nTEST:", test_index[0], " to ", test_index[-1])
+                X_train, X_test = X[train_index], X[test_index]
+                y_train, y_test = y[train_index], y[test_index]
+
+                # - - - CLEAN GRADIENT BOOSTING - - -
+                # # # Initiating the tree
+                rgb_cln = rGradBoost(X=X_train, y=y_train, max_depth=tree_max_depth,
+                                     min_sample_leaf=min_sample_leaf,
+                                     TrainNoiseCov=np.zeros([_m + 1, _m + 1]),
+                                     RobustFlag=gradboost_robust_flag,
+                                     criterion=criterion,
+                                     gd_tol=gd_tol, gd_learn_rate=learn_rate, gd_decay_rate=gd_decay_rate)
+
+                # Fitting on training data
+                rgb_cln.fit(X_train, y_train, m=_m)
+
+                # Predicting without noise (for reference)
+                pred_cln = rgb_cln.predict(X_test, PredNoiseCov=np.zeros([_m + 1, _m + 1]), rng=rng)
+                # # Saving the predictions to the training set
+                err_cln[:, _m_idx, kfold_idx] = aux.calc_error(y_test[:, 0], pred_cln, criterion)
+                # - - - - - - - - - - - - - - - - -
+
+                for idx_snr_db, snr_db in enumerate(snr_db_vec):
+                    print("snr " + " = " + "{0:0.3f}".format(snr_db) + ": ", end=" ")
+
+                    # Set noise variance
+                    noise_covariance = get_noise_covmat(np.mean(np.abs(y_train) ** 2), ensemble_size[_m_idx] + 1, snr_db, noisy_scale)
+                    # noise_covariance = get_noise_covmat(np.mean(err_cln[:, _m_idx, kfold_idx]), ensemble_size[_m_idx]+1, snr_db, noisy_scale)
+
+                    # - - - NON-ROBUST / ROBUST GRADIENT BOOSTING - - -
+                    rgb_nr = rGradBoost(X=X_train, y=y_train, max_depth=tree_max_depth,
+                                        min_sample_leaf=min_sample_leaf,
+                                        TrainNoiseCov=np.zeros([_m + 1, _m + 1]),
+                                        RobustFlag=gradboost_robust_flag,
+                                        criterion=criterion,
+                                        gd_tol=gd_tol, gd_learn_rate=learn_rate, gd_decay_rate=gd_decay_rate)
+                    rgb_r = rGradBoost(X=X_train, y=y_train, max_depth=tree_max_depth,
+                                       min_sample_leaf=min_sample_leaf,
+                                       TrainNoiseCov=noise_covariance,
+                                       RobustFlag=gradboost_robust_flag,
+                                       criterion=criterion,
+                                       gd_tol=gd_tol, gd_learn_rate=learn_rate, gd_decay_rate=gd_decay_rate)
+
+                    # Fitting on training data with noise: non-robust and robust
+                    rgb_r.fit(X_train, y_train, m=_m)
+                    rgb_nr.fit(X_train, y_train, m=_m)
+                    # rgb_nr.gamma[1::2]=0
+                    # - - - - - - - - - - - - - - - - -
+
+                    # Predicting with noise (for reference)
+                    pred_nr, pred_r, pred_r_cln = np.zeros(len(y_test)), np.zeros(len(y_test)), np.zeros(len(y_test))
+                    for _n in range(0, n_repeat):
+                        # - - - NON-ROBUST - - -
+                        pred_nr = rgb_nr.predict(X_test, PredNoiseCov=noise_covariance, rng=rng)
+                        err_nr[idx_snr_db, _m_idx, kfold_idx] += aux.calc_error(y_test[:, 0], pred_nr, criterion)
+                        # - - - ROBUST - - -
+                        pred_r = rgb_r.predict(X_test, PredNoiseCov=noise_covariance, rng=rng)
+                        err_r[idx_snr_db, _m_idx, kfold_idx] += aux.calc_error(y_test[:, 0], pred_r, criterion)
+                        # - - - ROBUST wo\ Noise - - -
+                        pred_r_cln = rgb_r.predict(X_test, PredNoiseCov=np.zeros([_m + 1, _m + 1]), rng=rng)
+                        err_r_cln[idx_snr_db, _m_idx, kfold_idx] += aux.calc_error(y_test[:, 0], pred_r_cln, criterion)
+
+                    # Expectation of error (over multiple realizations)
+                    err_nr[idx_snr_db, _m_idx, kfold_idx] /= n_repeat
+                    err_r[idx_snr_db, _m_idx, kfold_idx] /= n_repeat
+                    err_r_cln[idx_snr_db, _m_idx, kfold_idx] /= n_repeat
+
+                    # Sample presentation of data
+                    if X_train.shape[1] == 1 and plot_flag:
+                        fig_dataset = plt.figure(figsize=(12, 8))
+                        # plt.plot(X_train[:, 0], y_train, 'x', label="Train")
+                        plt.plot(X_test[:, 0], y_test, 'x', label="Train")
+                        plt.plot(X_test[:, 0], pred_cln, 'o',
+                                 label="Clean, " + "err=" + "{:.4f}".format(
+                                     err_cln[0, _m_idx, kfold_idx]))
+                        plt.plot(X_test[:, 0], pred_r, 'o',
+                                 label="Robust, " + "err=" + "{:.4f}".format(
+                                     err_r[idx_snr_db, _m_idx, kfold_idx]))
+                        plt.plot(X_test[:, 0], pred_nr, 'd',
+                                 label="Non-Robust, " + "err=" + "{:.4f}".format(
+                                     err_nr[idx_snr_db, _m_idx, kfold_idx]))
+                        plt.title("_m=" + "{:d}".format(_m) + ", SNR=" + "{:.2f}".format(snr_db))
+                        plt.xlabel('x')
+                        plt.ylabel('y')
+                        plt.legend()
+                        plt.show(block=False)
+                        plt.close(fig_dataset)
+
+                    print("\t\t\t\tError, (Clean, Non-robust, Robust, Robust (Clean)) = (" +
+                          "{0:0.3f}".format(err_cln[idx_snr_db, _m_idx, kfold_idx]) + ", " +
+                          "{0:0.3f}".format(err_nr[idx_snr_db, _m_idx, kfold_idx]) + ", " +
+                          "{0:0.3f}".format(err_nr[idx_snr_db, _m_idx, kfold_idx]) + ", " +
+                          "{0:0.3f}".format(err_r_cln[idx_snr_db, _m_idx, kfold_idx]) + ")"
+                          )
+                    print("\t\t\t\tError reduction [%], (NonRobust-Robust)/Clean = " +
+                          "{0:.3f}".format(100 * (err_nr[idx_snr_db, _m_idx, kfold_idx] - err_r[idx_snr_db, _m_idx, kfold_idx]) /
+                                           err_cln[idx_snr_db, _m_idx, kfold_idx])
+                          )
+                    print("\t\t\t\tError degradation [%], (Robust-Clean)/Clean = " +
+                          "{0:.3f}".format(100 * (err_r[idx_snr_db, _m_idx, kfold_idx] - err_cln[idx_snr_db, _m_idx, kfold_idx]) /
+                                           err_cln[idx_snr_db, _m_idx, kfold_idx])
+                          )
+
+                kfold_idx += 1
+
+            print("\nOVERALL PERFORMANCE: " + reg_algo + ", " + criterion.upper() + ", " + data_type + ", " + sigma_profile_type + ", T=" + str(_m))
+            err_cln_ser, err_nr_ser, err_r_ser = pd.Series(err_cln[:, _m_idx, :].mean(1)), pd.Series(err_nr[:, _m_idx, :].mean(1)), pd.Series(err_r[:, _m_idx, :].mean(1))
+            err_r_cln_ser = pd.Series(err_r_cln[:, _m_idx, :].mean(1))
+            results_df = pd.concat({'SNR': pd.Series(snr_db_vec),
+                                    'Noiseless error': err_cln_ser,
+                                    'Non-Robust error': err_nr_ser,
+                                    'Robust error': err_r_ser,
+                                    'Robust error (Clean)': err_r_cln_ser,
+                                    'Reduction [%]': 100 * (err_nr_ser - err_r_ser) / err_cln_ser,
+                                    'Degradation [%]': 100 * (err_r_ser - err_cln_ser) / err_cln_ser
+                                    },
+                                   axis=1)
+            pd.set_option("display.max_rows", None, "display.max_columns", None, "display.width", 200)
+            print(results_df)
+            # print("\nROBUST WEIGHTS:")
+            # print("\nNon-robust:"), print(rgb_nr.gamma)
+            # print("\nRobust:"),\
+            # print(rgb_r.gamma)
+            print("---------------------------------------------------------------------------\n")
+
+        # Error versus T for given SNR
+        plt.rcParams['text.usetex'] = True
+        fontsize = 24
+        plt.rcParams.update({'font.size': fontsize})
+        for idx_snr_db, snr_db in enumerate(snr_db_vec):
+            if idx_data_type == 0:
+                fig, axes = plt.subplots(nrows=2, ncols=1, figsize=(18, 12))
+                fig.set_label("GradBoost_MSEvsT_" + data_type_name[data_type] + "_" + sigma_profile_type)
+
+            ax = axes[idx_data_type]
+            if idx_data_type == 0:
+                if sigma_profile_type == "uniform":
+                    ax.set_title("Noise: Equi-Variance" + ", SNR=" + str(snr_db) + " [dB]" + "\n" + "Dataset: " + data_type_name[data_type])
+                elif sigma_profile_type == "noiseless_even":
+                    ax.set_title("Noise: Noisier subset, m=2, SNR=" + str(snr_db) + " [dB]" + "\n" + "Dataset: " + data_type_name[data_type])
+            else:
+                ax.set_title("Dataset: " + data_type_name[data_type])
+            ax.set_xlabel('Ensemble Size (T)', fontsize=fontsize)
+            ax.set_ylabel(criterion.upper(), fontsize=fontsize)
+
+            ensemble_size_ax = ensemble_size + np.ones_like(ensemble_size)
+            ax.plot(ensemble_size_ax, err_nr[idx_snr_db, :, :].mean(1), linestyle='-', marker='D', color='red', label='Noisy GB (Non-robust)')
+            ax.plot(ensemble_size_ax, err_r[idx_snr_db, :, :].mean(1), linestyle='-', marker='s', color='darkblue', label='Noisy Robust GB')
+            ax.plot(ensemble_size_ax, err_r_cln[idx_snr_db, :, :].mean(1), linestyle='--', marker='s', color='purple', label='Noiseless Robust GB')
+            ax.plot(ensemble_size_ax, err_cln[idx_snr_db, :, :].mean(1), linestyle='--', marker='*', color='black', label='Noiseless')
+
+            ax.legend(ncol=2), ax.grid(), plt.show(block=False)
+            ax.tick_params(axis='both', which='major', labelsize=fontsize)
+            ax.tick_params(axis='both', which='minor', labelsize=fontsize)
+
+            fig.tight_layout()  # otherwise the right y-label is slightly clipped
+            plt.subplots_adjust(hspace=.35)
     fig.savefig(fig.get_label() + ".png")

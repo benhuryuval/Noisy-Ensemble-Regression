@@ -200,13 +200,13 @@ class rGradBoost:
 
                 gd_learn_rate = self.gd_learn_rate #* 2**(_+1)
                 cost_evolution, gamma_evolution, stop_iter = auxfun.gradient_descent_scalar(gamma_init, grad_fun, cost_fun,
-                                                                                            max_iter=10000, min_iter=100,
+                                                                                            max_iter=2000, min_iter=100,
                                                                                             tol=self.gd_tol, learn_rate=gd_learn_rate,
                                                                                             decay_rate=self.gd_decay_rate)
 
                 # # DEBUG # #
                 # Cost evolution through GD
-                if True: #self.TrainNoiseCov[0,0]>0:
+                if False: #self.TrainNoiseCov[0,0]>0:
                     import matplotlib.pyplot as plt
                     fig, ax = plt.figure(figsize=(8, 6), dpi=300), plt.axes()
                     plt.figure(fig)
@@ -215,6 +215,7 @@ class rGradBoost:
                     plt.ylabel("Cost", fontsize=18)
                     plt.show(block=False)
                     bb=0
+                    # plt.close(fig)
                 # # DEBUG END # #
 
                 # Adding new weight to list
@@ -222,7 +223,7 @@ class rGradBoost:
 
                 # # DEBUG # #
                 # Fit of aggregated prediction
-                if True: #self.TrainNoiseCov[0,0]>0:
+                if False: #self.TrainNoiseCov[0,0]>0:
                     import matplotlib.pyplot as plt
                     fig_dataset, ax = plt.figure(figsize=(12, 8)), plt.axes()
                     plt.figure(fig_dataset)

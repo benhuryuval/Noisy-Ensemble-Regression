@@ -98,6 +98,8 @@ class rBaggReg:  # Robust Bagging Regressor
             ncov_mat = self.noise_covariance
             reg_mat = self.bag_tol * np.diag(np.ones(self.n_base_estimators, ))
             self.weights = np.linalg.inv(c_mat + lamda*ncov_mat + reg_mat).dot(base_prediction).dot(y)/len(y)  # least-squares
+            # self.scores = np.mean((base_prediction * np.expand_dims(self.weights, axis=1) - y)**2, axis=1)
+            self.scores = np.mean((base_prediction - y)**2, axis=1)
 
         else:
             print('Invalid integration type.')
