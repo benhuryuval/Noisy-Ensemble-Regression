@@ -5,6 +5,7 @@ import sklearn as sk
 import sklearn.model_selection
 import sklearn.ensemble
 import sklearn.datasets
+import scipy as sp
 import pandas as pd  # data handling
 from sklearn.model_selection import KFold  # k-fold cross-validation
 # OS traversal
@@ -238,8 +239,8 @@ if enable_flag_0:
 ####################################################
 # 1: Distribution of coefficients across Bagging ensembles
 ####################################################
-enable_flag_1 = False
-if False:
+enable_flag_1 = True
+if False:  ## Histograms
     reg_algo, bagging_method, criterion = "Bagging", "lr", "mse"
     gd_learn_rate_dict, gd_learn_rate_dict_r, gd_tol, gd_decay_rate, bag_regtol_dict = getGradDecParams(reg_algo)
     ensemble_size, tree_max_depth, min_sample_leaf = [20], 5, 1
@@ -344,7 +345,7 @@ if False:
             ax.tick_params(axis='both', which='minor', labelsize=fontsize)
             fig.savefig(fig.get_label() + ".png")
     print("---------------------------------------------------------------------------\n")
-if enable_flag_1:
+if False:  ## Data-based barplots
     import seaborn as sns
 
     reg_algo, bagging_method, criterion = "Bagging", "lr", "mse"
@@ -497,6 +498,116 @@ if enable_flag_1:
             labels = [item.get_text() for item in ax2.get_xticklabels()]
             labels[0] = ''
             ax2.set_xticklabels(labels)
+
+            plt.tight_layout()
+            plt.show()
+
+            fig.savefig(fig.get_label() + ".png")
+    print("---------------------------------------------------------------------------\n")
+if enable_flag_1:  # Synthetic-data based barplots
+    import seaborn as sns
+
+    reg_algo, bagging_method, criterion = "Bagging", "lr", "mse"
+    gd_learn_rate_dict, gd_learn_rate_dict_r, gd_tol, gd_decay_rate, bag_regtol_dict = getGradDecParams(reg_algo)
+    ensemble_size, tree_max_depth, min_sample_leaf = [20], 5, 1
+    data_type_vec = ["sin"]
+    sigma_profile_type_vec = ["uniform"]
+    _m = ensemble_size[0]
+    snr_db, noisy_scale = [100, 10, -10], 20
+    KFold_n_splits = 4
+    plot_flag = True
+
+    for _profile_idx, sigma_profile_type in enumerate(sigma_profile_type_vec):
+        coefs_nr, coefs_r = [], []
+        for _ds_idx, data_type in enumerate(data_type_vec):
+            print("- - - dataset: " + str(data_type) + " - - -")
+
+            # Set noise covariances
+            X_train, y_train = aux.get_dataset(data_type=data_type, n_samples=n_samples, noise=train_noise, rng=rng)
+            ncov0 = get_noise_covmat(y_train, _m, snr_db[0], noisy_scale)
+            ncov1 = get_noise_covmat(y_train, _m, snr_db[1], noisy_scale)
+            ncov2 = get_noise_covmat(y_train, _m, snr_db[2], noisy_scale)
+
+            # Set model-error matrices
+            ecov_profile = np.arange(1, _m+1) / _m
+            ecov = np.diag(ecov_profile)
+
+            def getCoefs(c_mat):
+                w, v = sp.linalg.eig(c_mat, np.ones([_m, _m]))
+                min_w = np.min(w.real)
+                min_w_idxs = [index for index, element in enumerate(w) if min_w == element]
+                v_min = v[:, min_w_idxs].mean(axis=1)
+                weights = v_min.T / v_min.sum()
+                return weights
+
+            coefs0, coefs1, coefs2 = getCoefs(ecov), getCoefs(ecov + ncov1), getCoefs(ecov + ncov2)
+
+            ecov_profile_db = 10*np.log10(ecov_profile)
+            data = {'coeficients': np.concatenate((np.abs(coefs0), np.abs(coefs1), np.abs(coefs2)), axis=0),
+                    'index': np.concatenate((np.arange(1, _m+1), np.arange(1, _m+1), np.arange(1, _m+1)), axis=0),
+                    'Noise type': ['noiseless']*_m + ['weak noise']*_m + ['high noise']*_m,
+                    'score': np.concatenate((ecov_profile, ecov_profile, ecov_profile), axis=0),
+                    }
+            df = pd.DataFrame(data)
+
+            # Plotting distributions of coefficients
+            plt.rcParams['text.usetex'] = True
+            fontsize = 16
+            plt.rcParams.update({'font.size': fontsize})
+            plt.rcParams.update({'figure.autolayout': True})
+            sns.set_theme(style='whitegrid')
+
+            colors = ['blue', 'red', 'green', 'tan']
+            hatches = ["//", "++", "..", "xx"]
+
+            fig, (ax1, ax2) = plt.subplots(ncols=2, figsize=(12, 8), sharey=True, gridspec_kw={'width_ratios': [1, 2], 'wspace': 0})
+            fig.set_label("coefficients_barplot")
+
+            # draw coefficients subplot at the right
+            sns.barplot(data=df, x='coeficients', y='index', hue='Noise type',
+                        orient='horizontal', dodge=True, ax=ax2)
+            plt.legend(loc='center right', fontsize=fontsize)
+            # Set bars hatches on right axes
+            hatches = ["//", "\\\\", "|"]
+            for (ibar, bars), hatch in zip(enumerate(ax2.containers), hatches):
+                # Set a different hatch for each group of bars
+                for bar in bars:
+                    bar.set_hatch(hatch)
+                    ax2.legend_.get_patches()[ibar].set_hatch(hatch)
+
+            # draw prediction quality subplot at the left
+            sns.barplot(data=df[df['Noise type'] == 'weak noise'], x='score', y='index',
+                        orient='horizontal', dodge=True, color='grey', ax=ax1)
+            # Set bars transparency on left axes
+            alpha, hatch = 0.65, '..'
+            for bar in ax1.containers[0]:
+                bar.set_alpha(alpha)
+                bar.set_hatch(hatch)
+            plt.show()
+
+            # Set title, axis labels, and legend on right axes
+            ax2.yaxis.set_label_position('right')
+            ax2.tick_params(axis='y', labelright=False, right=False)
+            ax2.set_title('   ' + 'Coefficient value', loc='center', fontsize=fontsize)
+            ax2.set_xlabel('')
+
+            # Fix x axis and tick labels on both axes
+            labels = [item.get_text() for item in ax2.get_xticklabels()]
+            labels[0] = ''
+            ax2.set_xticklabels(labels, fontsize=fontsize)
+
+            ax1.invert_xaxis()  # reverse the direction
+            ax1.tick_params(labelleft=True, left=True)
+            labels = [item.get_text() for item in ax1.get_xticklabels()]
+            labels[0] = '$0.0$'
+            ax1.set_xticklabels(labels, fontsize=fontsize)
+
+            # Set title and axis labels on left axes
+            ax1.set_title('Individual error' + '   ', loc='center', fontsize=fontsize)
+            ax1.set_ylabel('Sub-regressor index', fontsize=fontsize)
+            ax1.set_xlabel('')
+            labels = [item for item in ax1.get_yticklabels()]
+            ax1.set_yticklabels(labels, fontsize=fontsize)
 
             plt.tight_layout()
             plt.show()
@@ -874,7 +985,7 @@ if enable_flag_4:
 ####################################################
 # 5: Gradient-Boosting MSE versus T
 ####################################################
-enable_flag_5 = True
+enable_flag_5 = False
 if enable_flag_5:
     def get_noise_covmat(sig_var, _m=1, snr_db=0, noisy_scale=1):
         snr = 10 ** (snr_db / 10)
