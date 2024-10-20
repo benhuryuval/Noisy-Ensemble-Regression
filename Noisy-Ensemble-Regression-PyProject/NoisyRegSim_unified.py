@@ -48,7 +48,7 @@ reg_algo = "Bagging"  # "GradBoost" / "Bagging"
 bagging_method = "lr"  # "bem" / "gem" / "lr"
 
 n_repeat = 100  # Number of iterations for estimating expected performance
-sigma_profile_type = "noiseless_even"  # uniform / single_noisy / noiseless_even
+sigma_profile_type = "uniform"  # uniform / single_noisy / noiseless_even
 noisy_scale = 20
 n_samples = 1000  # Size of the (synthetic) dataset  in case of synthetic dataset
 train_noise = 0.01  # Standard deviation of the measurement / training noise in case of synthetic dataset
@@ -481,6 +481,7 @@ if reg_algo == "GradBoost":
 ####################################################
 # Bagging
 ####################################################
+noisetype = 'gaussian'  # gaussian / laplace
 if reg_algo == "Bagging":
         for data_type in data_type_vec:
                 print("- - - dataset: " + str(data_type) + " - - -")
@@ -574,10 +575,10 @@ if reg_algo == "Bagging":
                                         pred_nr, pred_r = np.zeros(len(y_test)), np.zeros(len(y_test))
                                         for _n in range(0, n_repeat):
                                             # - - - NON-ROBUST - - -
-                                            pred_nr = noisy_reg.predict(X_test, rng=rng)
+                                            pred_nr = noisy_reg.predict(X_test, rng=rng, noisetype=noisetype)
                                             err_nr[idx_snr_db, _m_idx, kfold_idx] += aux.calc_error(y_test, pred_nr, criterion)
                                             # - - - ROBUST - - -
-                                            pred_r = noisy_rreg.predict(X_test, rng=rng)
+                                            pred_r = noisy_rreg.predict(X_test, rng=rng, noisetype=noisetype)
                                             err_r[idx_snr_db, _m_idx, kfold_idx] += aux.calc_error(y_test, pred_r, criterion)
 
                                         # Expectation of error (over multiple realizations)

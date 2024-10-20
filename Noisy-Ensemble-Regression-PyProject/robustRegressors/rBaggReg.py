@@ -1,6 +1,7 @@
 import numpy as np
 import scipy as sp
 import robustRegressors.auxilliaryFunctions as auxfun
+from multivariate_laplace import multivariate_laplace
 
 class rBaggReg:  # Robust Bagging Regressor
     # This class contains the implementation of Bagging aggregation methods for a given regression
@@ -226,7 +227,7 @@ class rBaggReg:  # Robust Bagging Regressor
             self.fit_mae(X, y)
         return self
 
-    def predict(self, X, weights=None, rng=np.random.default_rng(seed=42), noiseless=False):
+    def predict(self, X, weights=None, rng=np.random.default_rng(seed=42), noiseless=False, noisetype='gaussian'):
         if weights is None:
             weights = self.weights
 
@@ -236,7 +237,12 @@ class rBaggReg:  # Robust Bagging Regressor
             base_prediction[k, :] = base_estimator.predict(X)
 
         # Generate noise
-        pred_noise = rng.multivariate_normal(np.zeros(self.n_base_estimators), self.noise_covariance, len(X))
+        if noisetype == 'gaussian':
+            pred_noise = rng.multivariate_normal(np.zeros(self.n_base_estimators), self.noise_covariance, len(X))
+        elif noisetype == 'laplace':
+            pred_noise = multivariate_laplace.rvs(np.zeros(self.n_base_estimators), self.noise_covariance, len(X))
+        else:
+            raise ValueError('Invalid noise type')
         if noiseless:
             pred_noise *= 0
 

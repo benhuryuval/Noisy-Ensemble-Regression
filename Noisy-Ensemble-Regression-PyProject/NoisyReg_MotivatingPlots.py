@@ -239,7 +239,7 @@ if enable_flag_0:
 ####################################################
 # 1: Distribution of coefficients across Bagging ensembles
 ####################################################
-enable_flag_1 = True
+enable_flag_1 = False
 if False:  ## Histograms
     reg_algo, bagging_method, criterion = "Bagging", "lr", "mse"
     gd_learn_rate_dict, gd_learn_rate_dict_r, gd_tol, gd_decay_rate, bag_regtol_dict = getGradDecParams(reg_algo)
@@ -1238,3 +1238,160 @@ if enable_flag_5:
             fig.tight_layout()  # otherwise the right y-label is slightly clipped
             plt.subplots_adjust(hspace=.35)
     fig.savefig(fig.get_label() + ".png")
+
+####################################################
+# 6: Different noise distribution
+####################################################
+if True:
+    import pandas as pd
+    import matplotlib as mpl
+    from matplotlib.patches import Patch
+    import matplotlib.pyplot as plt
+    import os  # from os.path import exists
+    import numpy as np
+
+    def mag2db(x, crit="mse"):
+        if crit.upper() == "MSE":
+            return 10*np.log10(x)
+        else:
+            return 10 * np.log10(x)
+    def db2mag(x, crit="mse"):
+        if crit.upper() == "MSE":
+            return 10**(x/10)
+        else:
+            return 10**(x/10)
+
+    data_type_vec = ["sin", "make_reg", "diabetes", "white-wine", "kc_house_data"]
+    T = 16
+
+    # MSE with Normal noise
+    results_folder_path = os.path.join("Results", "2024_04_03")
+    criterion, reg_algo, bagging_method, sigma_profile_type = "mse", "Bagging", "lr", "uniform"
+    exp_name = "_".join((criterion, sigma_profile_type, reg_algo.lower(), bagging_method))
+    results_path_gaussian = os.path.join(results_folder_path, exp_name)
+
+    # MSE with Laplace noise
+    results_folder_path = os.path.join("Results", "2024_10_20")
+    criterion, reg_algo, bagging_method, sigma_profile_type = "mse", "Bagging", "lr", "uniform"
+    exp_name = "_".join((criterion, sigma_profile_type, reg_algo.lower(), bagging_method))
+    results_path_laplace = os.path.join(results_folder_path, exp_name)
+
+    # # # # # # Robust vs non-robust MSE
+    data_label = {
+        "sin": "Sine",
+        "exp": "Exp",
+        "make_reg": "Hyperplane",
+        "kc_house_data": "King County",
+        "diabetes": "Diabetes",
+        "white-wine": "Wine"
+    }
+
+    figname_ = "_".join((exp_name, "RobustVsNonrobust"))
+    # plt.rcParams['text.usetex'] = True
+    fig_, ax_ = plt.subplots(1, 1, figsize=(12, 9))
+    fig_.set_label(figname_)
+    markers, labels = ["1", "2", "3", "4", "+"], data_type_vec
+    colors = []
+    for data_type_idx, data_type in enumerate(data_type_vec):
+        #
+        fname = "_".join((criterion, sigma_profile_type, data_type, reg_algo.lower(), bagging_method)) + ".csv"
+        path_to_file = os.path.join(results_path_gaussian, fname)
+        if os.path.exists(path_to_file):
+            res_gaussian_df = pd.read_csv(path_to_file)
+        else:
+            continue
+        #
+        fname = "_".join((criterion, sigma_profile_type, data_type, reg_algo.lower(), bagging_method)) + ".csv"
+        path_to_file = os.path.join(results_path_laplace, fname)
+        if os.path.exists(path_to_file):
+            res_laplace_df = pd.read_csv(path_to_file)
+        else:
+            continue
+
+        snr_db_vec = res_gaussian_df["SNR"]
+        err_nr_gaussian, err_r_gaussian, err_cln_gaussian = res_gaussian_df[reg_algo + ', Non-Robust'], res_gaussian_df[reg_algo + ', Robust'], \
+                                 res_gaussian_df[reg_algo + ', Noiseless']
+        err_nr_laplace, err_r_laplace, err_cln_laplace = res_laplace_df[reg_algo + ', Non-Robust'], res_laplace_df[reg_algo + ', Robust'], \
+                                 res_laplace_df[reg_algo + ', Noiseless']
+
+        colors.append(next(ax_._get_lines.prop_cycler)['color'])
+        ax_.plot(snr_db_vec, 10**(err_r_gaussian/10), label=data_label[data_type], linestyle=':', marker=markers[data_type_idx], color=colors[data_type_idx], markersize=10, markeredgewidth=3)
+        ax_.plot(snr_db_vec, 10**(err_r_laplace/10), label=data_label[data_type], linestyle='-', marker=markers[data_type_idx], color=colors[data_type_idx], markersize=10, markeredgewidth=3)
+        plt.legend()
+        plt.xlim((-3, 10))
+        plt.ylim((0, 1100))
+        plt.grid()
+        plt.show(block=False)
+
+    ax_.grid()
+    ax_.set_ylim(bottom=0, top=1.5)
+    ax_.grid()
+    ax_.set_xlabel('SNR [dB]', fontsize=18), ax_.set_ylabel(criterion.upper(), fontsize=18)
+    ax_.tick_params(axis='both', which='major', labelsize=16), ax_.tick_params(axis='both', which='minor', labelsize=16)
+    plt.show(block=False)
+    # change legend order
+    handles, labels = ax_.get_legend_handles_labels()  # get handles and labels
+    idxs = np.linspace(0, 2 * (len(data_type_vec) - 1), len(data_type_vec), dtype=np.int32)
+    order = 1 + idxs  # np.concatenate((idxs, 1+idxs))  # specify order of items in legend
+    plt.legend([handles[idx] for idx in order], [labels[idx] for idx in order], fontsize=12, ncol=1)  # add legend to plot
+    #
+    def style_legend_titles_by_setting_position(leg: mpl.legend.Legend, bold: bool = False) -> None:
+        """ Style legend "titles"
+
+        A legend entry can be marked as a title by setting visible=False. Titles
+        get left-aligned and optionally bolded.
+        """
+        # matplotlib.offsetbox.HPacker unconditionally adds a pixel of padding
+        # around each child.
+        hpacker_padding = 2
+
+        for handle, label in zip(leg.legendHandles, leg.texts):
+            if not handle.get_visible():
+                # See matplotlib.legend.Legend._init_legend_box()
+                widths = [leg.handlelength, leg.handletextpad]
+                offset_points = sum(leg._fontsize * w for w in widths)
+                offset_pixels = leg.figure.canvas.get_renderer().points_to_pixels(offset_points) + hpacker_padding
+                label.set_position((-offset_pixels, 0))
+                if bold:
+                    label.set_fontweight('bold')
+
+    def make_legend_with_subtitles(colors, data_type) -> mpl.legend.Legend:
+        legend_contents = [
+            (Patch(visible=False), 'Dataset'),
+            (plt.Line2D([], [], linestyle=':', color=colors[0], marker=markers[0], markersize=10, markeredgewidth=3), data_type[0]),
+            (plt.Line2D([], [], linestyle=':', color=colors[1], marker=markers[1], markersize=10, markeredgewidth=3), data_type[1]),
+            (plt.Line2D([], [], linestyle=':', color=colors[2], marker=markers[2], markersize=10, markeredgewidth=3), data_type[2]),
+            (plt.Line2D([], [], linestyle=':', color=colors[3], marker=markers[3], markersize=10, markeredgewidth=3), data_type[3]),
+            (plt.Line2D([], [], linestyle=':', color=colors[4], marker=markers[4], markersize=10, markeredgewidth=3), data_type[4]),
+            # (Patch(linestyle=':', color=colors[0]), data_type[0]),
+            # (Patch(linestyle=':', color=colors[1]), data_type[1]),
+            # (Patch(linestyle=':', color=colors[2]), data_type[2]),
+            # (Patch(linestyle=':', color=colors[3]), data_type[3]),
+            # (Patch(linestyle=':', color=colors[4]), data_type[4]),
+
+            # (Patch(visible=False), ''),  # spacer
+
+            (Patch(visible=False), 'Noise'),
+            (plt.Line2D([], [], linestyle=':', color='black'), 'Gaussian'),
+            (plt.Line2D([], [], linestyle='-', color='black'), 'Laplace'),
+        ]
+        fig = plt.figure(figsize=(2, 2))
+        leg = fig.legend(*zip(*legend_contents))
+        handles = [legend_contents[i][0] for i in range(9)]
+        labels = [legend_contents[i][1] for i in range(9)]
+        return leg, handles, labels
+
+    names = [data_label[data_type_vec[0]], data_label[data_type_vec[1]], data_label[data_type_vec[2]], data_label[data_type_vec[3]], data_label[data_type_vec[4]]]
+    leg, handles, labels = make_legend_with_subtitles(colors, names)
+    ax_.legend(handles=handles, labels=labels, fontsize=16)
+    style_legend_titles_by_setting_position(ax_.get_legend())
+    hpacker_padding = 2
+    for handle, label in zip(ax_.get_legend().legendHandles, ax_.get_legend().texts):
+        if not handle.get_visible():
+            # See matplotlib.legend.Legend._init_legend_box()
+            widths = [ax_.get_legend().handlelength, ax_.get_legend().handletextpad]
+            offset_points = sum(ax_.get_legend()._fontsize * w for w in widths)
+            offset_pixels = ax_.get_legend().figure.canvas.get_renderer().points_to_pixels(offset_points) + hpacker_padding
+            label.set_position((-offset_pixels, 0))
+            if True:
+                label.set_fontweight('bold')

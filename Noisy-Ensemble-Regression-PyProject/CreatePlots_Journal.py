@@ -19,7 +19,7 @@ def db2mag(x, crit="mse"):
 data_type_vec = ["sin", "make_reg", "diabetes", "white-wine", "kc_house_data"]
 T = 16
 
-# results_folder_path = os.path.join("Results", "2024_04_03")  # MSE/MAE results
+# results_folder_path = os.path.join("Results", "2024_04_03")  # MSE/MAE results for JSAC paper
 
 # criterion, reg_algo, bagging_method, sigma_profile_type = "mse", "Bagging", "lr", "uniform"
 # criterion, reg_algo, bagging_method, sigma_profile_type = "mse", "Bagging", "lr", "noiseless_even"
@@ -33,11 +33,22 @@ T = 16
 # criterion, reg_algo, bagging_method, sigma_profile_type = "mae", "GradBoost", "gem", "uniform"
 # criterion, reg_algo, bagging_method, sigma_profile_type = "mae", "GradBoost", "gem", "noiseless_even"
 
-results_folder_path = os.path.join("Results", "2024_01_12")  # MAE gains
-criterion, reg_algo, bagging_method, sigma_profile_type = "mae", "Bagging", "gem", "noiseless_even"
+# exp_name = "_".join((str(T), criterion, sigma_profile_type, reg_algo.lower(), bagging_method))
 
-exp_name = "_".join((str(T), criterion, sigma_profile_type, reg_algo.lower(), bagging_method))
-# exp_name = "_".join((criterion, sigma_profile_type, reg_algo.lower(), bagging_method))
+
+
+# results_folder_path = os.path.join("Results", "2024_01_12")  # MAE gains for JSAC paper
+# criterion, reg_algo, bagging_method, sigma_profile_type = "mae", "Bagging", "gem", "noiseless_even"
+# exp_name = "_".join((str(T), criterion, sigma_profile_type, reg_algo.lower(), bagging_method))
+
+
+
+results_folder_path = os.path.join("Results", "2024_10_20")  # MSE with laplace noise
+criterion, reg_algo, bagging_method, sigma_profile_type = "mse", "Bagging", "lr", "uniform"
+exp_name = "_".join((criterion, sigma_profile_type, reg_algo.lower(), bagging_method))
+
+
+
 results_path = os.path.join(results_folder_path, exp_name)
 
 # # # # # # Robust vs non-robust MSE
@@ -67,7 +78,7 @@ colors = []
 for data_type_idx, data_type in enumerate(data_type_vec):
     if reg_algo == "Bagging":
         fname = "_".join((criterion, sigma_profile_type, data_type, reg_algo.lower(), bagging_method)) + ".csv"
-        fname = "_".join((str(T), criterion, sigma_profile_type, data_type, reg_algo.lower(), bagging_method)) + ".csv"
+        # fname = "_".join((str(T), criterion, sigma_profile_type, data_type, reg_algo.lower(), bagging_method)) + ".csv"
     elif reg_algo == "GradBoost":
         fname = "_".join((criterion, sigma_profile_type, data_type, "gbr")) + ".csv"
     path_to_file = os.path.join(results_path, fname)
@@ -150,6 +161,7 @@ def style_legend_titles_by_setting_position(leg: mpl.legend.Legend, bold: bool =
             label.set_position((-offset_pixels, 0))
             if bold:
                 label.set_fontweight('bold')
+
 def make_legend_with_subtitles(colors, data_type) -> mpl.legend.Legend:
     legend_contents = [
         (Patch(visible=False), 'Dataset'),
