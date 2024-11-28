@@ -7,8 +7,8 @@ import sys
 # Adding the whole project to module paths
 module_path = os.path.abspath(os.path.join('..'))
 if module_path not in sys.path:
+    sys.path.append(module_path)
 
-sys.path.append(module_path)
 import pandas as pd
 import matplotlib.pyplot as plt  # Plotting
 from GradientBoosting.boosting import RobustRegressionGB  # Regression boosting
