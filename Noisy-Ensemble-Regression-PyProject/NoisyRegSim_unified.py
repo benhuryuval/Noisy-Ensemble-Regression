@@ -481,7 +481,7 @@ if reg_algo == "GradBoost":
 ####################################################
 # Bagging
 ####################################################
-noisetype = 'gaussian'  # gaussian / laplace
+noisetype = 'gaussian'  # gaussian / laplace / tstudent
 if reg_algo == "Bagging":
         for data_type in data_type_vec:
                 print("- - - dataset: " + str(data_type) + " - - -")

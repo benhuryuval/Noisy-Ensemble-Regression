@@ -2,6 +2,7 @@ import numpy as np
 import scipy as sp
 import robustRegressors.auxilliaryFunctions as auxfun
 from multivariate_laplace import multivariate_laplace
+from scipy.stats import multivariate_t
 
 class rBaggReg:  # Robust Bagging Regressor
     # This class contains the implementation of Bagging aggregation methods for a given regression
@@ -241,6 +242,8 @@ class rBaggReg:  # Robust Bagging Regressor
             pred_noise = rng.multivariate_normal(np.zeros(self.n_base_estimators), self.noise_covariance, len(X))
         elif noisetype == 'laplace':
             pred_noise = multivariate_laplace.rvs(np.zeros(self.n_base_estimators), self.noise_covariance, len(X))
+        elif noisetype == 'tstudent':
+            pred_noise = multivariate_t.rvs(np.zeros(self.n_base_estimators), self.noise_covariance, size=len(X))
         else:
             raise ValueError('Invalid noise type')
         if noiseless:

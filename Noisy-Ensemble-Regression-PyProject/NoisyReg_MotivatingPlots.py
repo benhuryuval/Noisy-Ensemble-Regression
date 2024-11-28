@@ -240,7 +240,7 @@ if enable_flag_0:
 # 1: Distribution of coefficients across Bagging ensembles
 ####################################################
 enable_flag_1 = False
-if False:  ## Histograms
+if True:  ## Histograms
     reg_algo, bagging_method, criterion = "Bagging", "lr", "mse"
     gd_learn_rate_dict, gd_learn_rate_dict_r, gd_tol, gd_decay_rate, bag_regtol_dict = getGradDecParams(reg_algo)
     ensemble_size, tree_max_depth, min_sample_leaf = [20], 5, 1
@@ -314,10 +314,10 @@ if False:  ## Histograms
 
             # Plotting distributions of coefficients
             if _profile_idx == 0 and _ds_idx == 0:
-                plt.rcParams['text.usetex'] = True
-                fontsize = 24
-                plt.rcParams.update({'font.size': fontsize})
                 fig, axes = plt.subplots(nrows=1, ncols=2, figsize=(24, 16))
+                fontsize = 22
+                plt.rcParams['text.usetex'] = True
+                plt.rcParams.update({'font.size': fontsize})
                 axes_flat = axes.flatten()
                 colors = ['blue', 'red', 'green', 'tan']
                 hatches = ["//", "++", "..", "xx"]
@@ -331,18 +331,18 @@ if False:  ## Histograms
                 for patch in patch_set.patches:
                     patch.set_hatch(hatch)
             if sigma_profile_type == "uniform":
-                ax.set_title("Dataset: " + data_type_name[data_type] + ", \\\\" + "Noise: Equi-Variance")
+                ax.set_title("Dataset: " + data_type_name[data_type] + ", \n" + "Noise: Equi-Variance")
             elif sigma_profile_type == "noiseless_even":
-                ax.set_title("Dataset: " + data_type_name[data_type] + ", \\\\" + "Noise: Noisier subset, m=2")
+                ax.set_title("Dataset: " + data_type_name[data_type] + ", \n" + "Noise: Noisier subset, m=2")
             # ax.set_xlabel('Values')
             # ax.set_ylabel('Counts')
             plt.tight_layout()
             plt.subplots_adjust(hspace=.2)
-            plt.show(block=False)
             # plt.title(sigma_profile_type)
             # plt.setp(axes, xlim=[-0.05, 0.25])
             ax.tick_params(axis='both', which='major', labelsize=fontsize)
             ax.tick_params(axis='both', which='minor', labelsize=fontsize)
+            plt.show(block=False)
             fig.savefig(fig.get_label() + ".png")
     print("---------------------------------------------------------------------------\n")
 if False:  ## Data-based barplots
@@ -552,7 +552,7 @@ if enable_flag_1:  # Synthetic-data based barplots
 
             # Plotting distributions of coefficients
             plt.rcParams['text.usetex'] = True
-            fontsize = 16
+            fontsize = 20
             plt.rcParams.update({'font.size': fontsize})
             plt.rcParams.update({'figure.autolayout': True})
             sns.set_theme(style='whitegrid')
@@ -612,7 +612,7 @@ if enable_flag_1:  # Synthetic-data based barplots
             plt.tight_layout()
             plt.show()
 
-            fig.savefig(fig.get_label() + ".png")
+            # fig.savefig(fig.get_label() + ".png")
     print("---------------------------------------------------------------------------\n")
 
 ####################################################
@@ -1242,7 +1242,7 @@ if enable_flag_5:
 ####################################################
 # 6: Different noise distribution
 ####################################################
-if True:
+if False:
     import pandas as pd
     import matplotlib as mpl
     from matplotlib.patches import Patch
@@ -1286,7 +1286,7 @@ if True:
         "white-wine": "Wine"
     }
 
-    figname_ = "_".join((exp_name, "RobustVsNonrobust"))
+    figname_ = "_".join((exp_name, "GaussianVsLaplace"))
     # plt.rcParams['text.usetex'] = True
     fig_, ax_ = plt.subplots(1, 1, figsize=(12, 9))
     fig_.set_label(figname_)
@@ -1319,16 +1319,17 @@ if True:
         ax_.plot(snr_db_vec, 10**(err_r_laplace/10), label=data_label[data_type], linestyle='-', marker=markers[data_type_idx], color=colors[data_type_idx], markersize=10, markeredgewidth=3)
         plt.legend()
         plt.xlim((-3, 10))
-        plt.ylim((0, 1100))
-        plt.grid()
+        plt.ylim((0, 25))
         plt.show(block=False)
 
     ax_.grid()
-    ax_.set_ylim(bottom=0, top=1.5)
-    ax_.grid()
+    ax_.set_ylim(bottom=0, top=1.0)
     ax_.set_xlabel('SNR [dB]', fontsize=18), ax_.set_ylabel(criterion.upper(), fontsize=18)
     ax_.tick_params(axis='both', which='major', labelsize=16), ax_.tick_params(axis='both', which='minor', labelsize=16)
     plt.show(block=False)
+
+
+
     # change legend order
     handles, labels = ax_.get_legend_handles_labels()  # get handles and labels
     idxs = np.linspace(0, 2 * (len(data_type_vec) - 1), len(data_type_vec), dtype=np.int32)
