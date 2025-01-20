@@ -37,15 +37,15 @@ T = 16
 
 
 
-# results_folder_path = os.path.join("Results", "2024_01_12")  # MAE gains for JSAC paper
-# criterion, reg_algo, bagging_method, sigma_profile_type = "mae", "Bagging", "gem", "noiseless_even"
-# exp_name = "_".join((str(T), criterion, sigma_profile_type, reg_algo.lower(), bagging_method))
+results_folder_path = os.path.join("Results", "2024_01_12")  # MAE gains for JSAC paper
+criterion, reg_algo, bagging_method, sigma_profile_type = "mae", "Bagging", "gem", "noiseless_even"
+exp_name = "_".join((str(T), criterion, sigma_profile_type, reg_algo.lower(), bagging_method))
 
 
 
-results_folder_path = os.path.join("Results", "2024_10_20")  # MSE with laplace noise
-criterion, reg_algo, bagging_method, sigma_profile_type = "mse", "Bagging", "lr", "uniform"
-exp_name = "_".join((criterion, sigma_profile_type, reg_algo.lower(), bagging_method))
+# results_folder_path = os.path.join("Results", "2024_10_20")  # MSE with laplace noise
+# criterion, reg_algo, bagging_method, sigma_profile_type = "mse", "Bagging", "lr", "uniform"
+# exp_name = "_".join((criterion, sigma_profile_type, reg_algo.lower(), bagging_method))
 
 
 
@@ -77,8 +77,8 @@ markers, labels = ["1", "2", "3", "4", "+"], data_type_vec
 colors = []
 for data_type_idx, data_type in enumerate(data_type_vec):
     if reg_algo == "Bagging":
-        fname = "_".join((criterion, sigma_profile_type, data_type, reg_algo.lower(), bagging_method)) + ".csv"
-        # fname = "_".join((str(T), criterion, sigma_profile_type, data_type, reg_algo.lower(), bagging_method)) + ".csv"
+        # fname = "_".join((criterion, sigma_profile_type, data_type, reg_algo.lower(), bagging_method)) + ".csv"
+        fname = "_".join((str(T), criterion, sigma_profile_type, data_type, reg_algo.lower(), bagging_method)) + ".csv"
     elif reg_algo == "GradBoost":
         fname = "_".join((criterion, sigma_profile_type, data_type, "gbr")) + ".csv"
     path_to_file = os.path.join(results_path, fname)
@@ -152,7 +152,7 @@ def style_legend_titles_by_setting_position(leg: mpl.legend.Legend, bold: bool =
     # around each child.
     hpacker_padding = 2
 
-    for handle, label in zip(leg.legendHandles, leg.texts):
+    for handle, label in zip(leg.legend_handles, leg.texts):
         if not handle.get_visible():
             # See matplotlib.legend.Legend._init_legend_box()
             widths = [leg.handlelength, leg.handletextpad]
@@ -192,7 +192,7 @@ leg, handles, labels = make_legend_with_subtitles(colors, names)
 ax_.legend(handles=handles, labels=labels, fontsize=16)
 style_legend_titles_by_setting_position(ax_.get_legend())
 hpacker_padding = 2
-for handle, label in zip(ax_.get_legend().legendHandles, ax_.get_legend().texts):
+for handle, label in zip(ax_.get_legend().legend_handles, ax_.get_legend().texts):
     if not handle.get_visible():
         # See matplotlib.legend.Legend._init_legend_box()
         widths = [ax_.get_legend().handlelength, ax_.get_legend().handletextpad]
@@ -239,9 +239,9 @@ if False:
 # # # # # # Plot bounds for MAE, Bagging w\ normalized weights
 if criterion.upper() == "MAE" and reg_algo == "Bagging":
     figname = exp_name + "_Bounds"
-    fig, ax = plt.figure(figname, figsize=(12, 9)), plt.axes()
-    plt.xlabel("SNR [dB]", fontsize=18)
-    plt.ylabel("MAE [dB]", fontsize=18)
+    fig, ax = plt.figure(figname, figsize=(12, 8)), plt.axes()
+    plt.xlabel("SNR [dB]", fontsize=25)
+    plt.ylabel("MAE [dB]", fontsize=25)
 
     for data_type_idx, data_type in enumerate(data_type_vec):
         fname = "_".join((str(T), criterion, sigma_profile_type, data_type, reg_algo.lower(), bagging_method)) + ".csv"
@@ -263,8 +263,8 @@ if criterion.upper() == "MAE" and reg_algo == "Bagging":
         plt.plot(snr_db_vec, 2*err_results_df[['Upper bound (BEM), Robust', 'Upper bound (GEM), Robust']].min(axis=1) - scaler, color=color, label=data_label[data_type], linestyle='-', marker='o')
         # plt.plot(snr_db_vec, err_results_df[reg_algo + ", Robust"]-scaler, color=color, label=data_label[data_type], linestyle=':')
 
-        plt.xticks(fontsize=16)
-        plt.yticks(fontsize=16)
+        plt.xticks(fontsize=25)
+        plt.yticks(fontsize=25)
         plt.show(block=False)
         # plt.legend(fontsize=12, ncol=2)
 
@@ -272,7 +272,7 @@ if criterion.upper() == "MAE" and reg_algo == "Bagging":
     handles, labels = ax.get_legend_handles_labels()  # get handles and labels
     idxs = np.linspace(0, 2*(len(data_type_vec)-1), len(data_type_vec), dtype=np.int32)
     order = 1+idxs  #np.concatenate((idxs, 1+idxs))  # specify order of items in legend
-    plt.legend([handles[idx] for idx in order], [labels[idx] for idx in order], fontsize=12, ncol=1)  # add legend to plot
+    plt.legend([handles[idx] for idx in order], [labels[idx] for idx in order], fontsize=25, ncol=1)  # add legend to plot
     plt.grid()
 
     fig.savefig(os.path.join(results_path, fig.get_label()+".png"))

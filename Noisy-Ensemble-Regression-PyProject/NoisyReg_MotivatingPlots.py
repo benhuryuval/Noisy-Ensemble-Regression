@@ -26,6 +26,7 @@ import robustRegressors.auxilliaryFunctions as aux
 # Constants
 rng = np.random.default_rng(seed=42)
 results_path = "Results//"
+fig_size = (3*3.5, 3*2.5)
 
 n_repeat = 100  # Number of iterations for estimating expected performance
 n_samples = 1000  # Size of the (synthetic) dataset  in case of synthetic dataset
@@ -111,9 +112,9 @@ enable_flag_0 = False
 if enable_flag_0:
     ensemble_size, tree_max_depth, min_sample_leaf = [5], 8, 1
     reg_algo, bagging_method, criterion = "Bagging", "gem", "mse"  # "GradBoost" / "Bagging"
-    snr_db_vec = [-20]
+    snr_db_vec = [-6]
     sigma_profile_type = "single_noisy"  # uniform / single_noisy / noiseless_even
-    data_type_vec = ["sin", "exp"]
+    data_type_vec = ["sin"]
     KFold_n_splits = 4  # Number of k-fold x-validation dataset splits
     gd_learn_rate_dict, gd_learn_rate_dict_r, gd_tol, gd_decay_rate, bag_regtol_dict = getGradDecParams(reg_algo)
     noisy_scale = 20
@@ -190,9 +191,7 @@ if enable_flag_0:
                         fontsize = 18
                         plt.rcParams.update({'font.size': fontsize})
                         plt.rcParams['text.usetex'] = True
-                        fig, axe = plt.subplots(figsize=(1.25 * 8.4, 1.25 * 8.4))
-                        # px = 1 / plt.rcParams['figure.dpi']
-                        # fig, axe = plt.subplots(figsize=(1.25 * 8.4 * px, 1.25 * 8.4 * px))
+                        fig, axe = plt.subplots(figsize=fig_size)
                         fig.set_label(data_type + "_example")
                         y_pred = np.zeros([X_test.shape[0], n_repeat_plt])
                         sort_idxs_test = np.argsort(X_test[:, 0])
@@ -234,13 +233,15 @@ if enable_flag_0:
                                  fontsize=fontsize,
                                  bbox=dict(facecolor='green', alpha=0.1))
                         plt.show(block=False)
-                        # fig.savefig(fig.get_label() + ".png")
+
+                        fig.savefig(fig.get_label() + ".png")
+                        # fig.savefig(fig.get_label() + ".eps", format='eps')
 
 ####################################################
 # 1: Distribution of coefficients across Bagging ensembles
 ####################################################
 enable_flag_1 = False
-if True:  ## Histograms
+if enable_flag_1:  ## Histograms
     reg_algo, bagging_method, criterion = "Bagging", "lr", "mse"
     gd_learn_rate_dict, gd_learn_rate_dict_r, gd_tol, gd_decay_rate, bag_regtol_dict = getGradDecParams(reg_algo)
     ensemble_size, tree_max_depth, min_sample_leaf = [20], 5, 1
@@ -314,8 +315,8 @@ if True:  ## Histograms
 
             # Plotting distributions of coefficients
             if _profile_idx == 0 and _ds_idx == 0:
-                fig, axes = plt.subplots(nrows=1, ncols=2, figsize=(24, 16))
-                fontsize = 22
+                fig, axes = plt.subplots(nrows=1, ncols=2, figsize=fig_size)
+                fontsize = 18
                 plt.rcParams['text.usetex'] = True
                 plt.rcParams.update({'font.size': fontsize})
                 axes_flat = axes.flatten()
@@ -343,7 +344,9 @@ if True:  ## Histograms
             ax.tick_params(axis='both', which='major', labelsize=fontsize)
             ax.tick_params(axis='both', which='minor', labelsize=fontsize)
             plt.show(block=False)
-            fig.savefig(fig.get_label() + ".png")
+
+    fig.savefig(fig.get_label() + ".png")
+    # fig.savefig(fig.get_label() + ".eps", format='eps')
     print("---------------------------------------------------------------------------\n")
 if False:  ## Data-based barplots
     import seaborn as sns
@@ -552,7 +555,7 @@ if enable_flag_1:  # Synthetic-data based barplots
 
             # Plotting distributions of coefficients
             plt.rcParams['text.usetex'] = True
-            fontsize = 20
+            fontsize = 25
             plt.rcParams.update({'font.size': fontsize})
             plt.rcParams.update({'figure.autolayout': True})
             sns.set_theme(style='whitegrid')
@@ -583,7 +586,6 @@ if enable_flag_1:  # Synthetic-data based barplots
             for bar in ax1.containers[0]:
                 bar.set_alpha(alpha)
                 bar.set_hatch(hatch)
-            plt.show()
 
             # Set title, axis labels, and legend on right axes
             ax2.yaxis.set_label_position('right')
@@ -612,11 +614,11 @@ if enable_flag_1:  # Synthetic-data based barplots
             plt.tight_layout()
             plt.show()
 
-            # fig.savefig(fig.get_label() + ".png")
+            fig.savefig(fig.get_label() + ".png")
     print("---------------------------------------------------------------------------\n")
 
 ####################################################
-# 2: rGB vs noisy training
+# 2: rGB vs noisy training (Not included in JSAC paper)
 ####################################################
 enable_flag_2 = False
 if enable_flag_2:
@@ -800,12 +802,13 @@ if enable_flag_2:
             plt.title(data_type_name[data_type] + " dataset, " + "T=" + str(_m+1) + " regressors\nNoisy subset with m=2, a=" + str(noisy_scale) + ", SNR=" + str(snr_db_vec[idx_snr_db]) + " [dB]")
             plt.grid(visible=True), plt.show(block=False)
             plt.xlim(0.5, _m+1.5), plt.legend()
+
             fig.savefig(fig.get_label() + ".png")
 
         print("---------------------------------------------------------------------------\n")
 
 ####################################################
-# 3: Evaluate MAE with MSE-optimized vs MAE-optimized weights
+# 3: Evaluate MAE with MSE-optimized vs MAE-optimized weights (Not included in JSAC paper)
 ####################################################
 enable_flag_3 = False
 if enable_flag_3:
@@ -966,7 +969,7 @@ if enable_flag_4:
 
     fig = plt.figure(figsize=(12, 8))
     fig.set_label("Lambda_example_" + "T=" + "{:d}".format(_m) + ", SNR=" + "{:.2f}".format(snr_db))
-    fontsize = 18
+    fontsize = 25
     plt.rcParams['text.usetex'] = True
     for data_type_idx, data_type in enumerate(data_type_vec):
         plt.plot(lamda_vec, err_per_lambda[data_type_idx], label=data_type_name[data_type])
@@ -977,15 +980,15 @@ if enable_flag_4:
     # change legend order
     handles, labels = plt.gca().get_legend_handles_labels()  # get handles and labels
     order = np.array((3, 1, 4, 2, 0))  # specify order of items in legend
-    plt.legend([handles[idx] for idx in order], [labels[idx] for idx in order], fontsize=fontsize,
+    plt.legend([handles[idx] for idx in order], [labels[idx] for idx in order], fontsize=18,
                ncol=1)  # add legend to plot
 
     fig.savefig(fig.get_label() + ".png")
 
 ####################################################
-# 5: Gradient-Boosting MSE versus T
+# 5: Gradient-Boosting MSE versus T (Need to run twice: sigma_profile_type = "uniform" and sigma_profile_type = "noiseless_even"
 ####################################################
-enable_flag_5 = False
+enable_flag_5 = True
 if enable_flag_5:
     def get_noise_covmat(sig_var, _m=1, snr_db=0, noisy_scale=1):
         snr = 10 ** (snr_db / 10)
@@ -1207,7 +1210,7 @@ if enable_flag_5:
 
         # Error versus T for given SNR
         plt.rcParams['text.usetex'] = True
-        fontsize = 24
+        fontsize = 32
         plt.rcParams.update({'font.size': fontsize})
         for idx_snr_db, snr_db in enumerate(snr_db_vec):
             if idx_data_type == 0:
@@ -1217,11 +1220,11 @@ if enable_flag_5:
             ax = axes[idx_data_type]
             if idx_data_type == 0:
                 if sigma_profile_type == "uniform":
-                    ax.set_title("Noise: Equi-Variance" + ", SNR=" + str(snr_db) + " [dB]" + "\n" + "Dataset: " + data_type_name[data_type])
+                    ax.set_title("Noise: Equi-Variance" + ", SNR=" + str(snr_db) + " [dB]" + "\n" + "Dataset: " + data_type_name[data_type], fontsize=fontsize)
                 elif sigma_profile_type == "noiseless_even":
-                    ax.set_title("Noise: Noisier subset, m=2, SNR=" + str(snr_db) + " [dB]" + "\n" + "Dataset: " + data_type_name[data_type])
+                    ax.set_title("Noise: Noisier subset, m=2, SNR=" + str(snr_db) + " [dB]" + "\n" + "Dataset: " + data_type_name[data_type], fontsize=fontsize)
             else:
-                ax.set_title("Dataset: " + data_type_name[data_type])
+                ax.set_title("Dataset: " + data_type_name[data_type], fontsize=fontsize)
             ax.set_xlabel('Ensemble Size (T)', fontsize=fontsize)
             ax.set_ylabel(criterion.upper(), fontsize=fontsize)
 
@@ -1237,6 +1240,7 @@ if enable_flag_5:
 
             fig.tight_layout()  # otherwise the right y-label is slightly clipped
             plt.subplots_adjust(hspace=.35)
+
     fig.savefig(fig.get_label() + ".png")
 
 ####################################################
